@@ -1,0 +1,45 @@
+---
+description: Lords of Vegas project conventions, confirmed decisions, and data sources
+alwaysApply: true
+---
+
+# Lords of Vegas
+
+Production remote multiplayer web app for the Lords of Vegas base board game (2–6 players) with a YouTube-friendly Director view.
+
+## Stack
+- Next.js + React + TypeScript + Tailwind CSS
+- Supabase PostgreSQL + Realtime (project-scoped via `.cursor/mcp.json`)
+- Vercel deployment via GitHub
+
+## Architecture
+- Pure TypeScript game engine — no React or Supabase in `game-engine/`
+- UI never mutates state directly; all changes go through validated commands
+- Optimistic locking via `version_number` on game state writes
+
+## Confirmed Rules (do not guess)
+- **Dice exhaustion:** 12 dice per player. When all 12 are on the board and a new die is needed (build/sprawl), the player must remove one of their dice from an existing tile and place it on the new tile. The vacated tile stays built but has no die and no owner.
+- **Lot marker exhaustion:** 10 lot markers per player. When all 10 are placed and a new lot is acquired, the player must remove a marker from an existing lot (or trade to free one). They no longer own the vacated lot.
+- **Trade flow:** Every affected player must approve. Proposer can cancel while pending. Proposer clicks Execute after all approvals.
+- **No host/admin overrides** in v1.
+
+## Director View
+- Full game log (not highlights only)
+- Optional overlays: current turn, active player, recent payout, scoring update
+- Optimized for 16:9 / 1080p YouTube recording
+- No action controls
+
+## Visual Style
+- Cleaner digital redesign (not a pixel-perfect physical board clone)
+- Casino colors match physical game as closely as possible
+- Player colors fixed: black, blue, green, purple, red, yellow
+
+## Source of Truth for Game Data
+Use `lords-of-vegas-updated-data/` only — never placeholder or extracted values:
+- `board-lots.ts` / `board-lots.json` — 48 lots, prices, printed die values
+- `casino-cards.json` — 5 casino decks × 9 + Strip deck (A6, D5, F8, Game Over)
+- F7 is Vega Alliance, not Strip
+- Reference assets: `Lords_of_Vegas_Stitched_Playmat.png`, `Lords-of-Vegas-6-Player-Base-Game-Rulebook-V1-For-Web.pdf`
+
+## Out of Scope (v1)
+- Expansions, AI/bot players, account system, mobile-native apps, host admin fixes

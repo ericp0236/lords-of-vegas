@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0c0f16;
+  --surface: #141927;
+  --surface-2: #1c2336;
+  --border: #2a3450;
+  --foreground: #e8ecf5;
+  --muted: #8b94ad;
+  --accent: #f5c542; /* vegas gold */
+  --accent-2: #ff5d73; /* neon pink-red */
+  --felt: #0e3b2e;
+  --asphalt: #232937;
+  --strip: #101623;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border-dim: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-felt: var(--felt);
+  --color-asphalt: var(--asphalt);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Vegas-style title lettering */
+.marquee {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #ffe9a3 0%, #f5c542 45%, #c98f1b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 24px rgba(245, 197, 66, 0.25);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
