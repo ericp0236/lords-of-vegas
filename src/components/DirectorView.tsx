@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CASINOS, type CasinoColor, type PropertyCard } from "@/data/casinoCards";
+import { CASINOS } from "@/data/casinoCards";
 import { PLAYER_COLORS } from "@/data/playerColors";
 import { SCORE_TRACK } from "@/data/scoreTrack";
 import type { ActionCommand, GameState, TradeStep } from "@/engine/types";
@@ -16,6 +16,7 @@ import { fetchEvents, type GameEventRow } from "@/lib/gameApi";
 import { supabase } from "@/lib/supabaseClient";
 import { useGame } from "@/lib/useGame";
 import { useGameFeedback } from "@/lib/useGameFeedback";
+import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
 import { Board } from "./Board";
 import { Confetti } from "./fx/Confetti";
 import { DiscardPiles } from "./DiscardPiles";
@@ -54,6 +55,12 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
   const events = useFullLog(game.row?.id);
 
   useGameFeedback(game.state);
+
+  const { inRollPhase, rollOverlays } = useReorgRollPhase(
+    game.state?.pendingChoice ?? null,
+    game.state?.players ?? [],
+    game.state?.turn?.reorgReveal,
+  );
 
   if (game.loading) {
     return (
@@ -141,15 +148,15 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
           </Panel>
         </aside>
 
-        <Board state={state} className="min-h-0 min-w-0 flex-1" />
+        <Board
+          state={state}
+          overlayDice={inRollPhase ? rollOverlays : undefined}
+          className="min-h-0 min-w-0 flex-1"
+        />
 
         <aside className="scrollbar-thin flex w-[320px] shrink-0 flex-col gap-2 overflow-y-auto">
-          <Panel
-            title="Deck & discards"
-            titleClassName="text-[var(--accent)] tracking-[0.12em]"
-            bodyClassName="pt-1"
-          >
-            <DiscardPiles state={state} />
+          <Panel bodyClassName="p-2 pt-1">
+            <DiscardPiles state={state} drawnCard={state.turn?.drawnCard ?? null} />
           </Panel>
           {active && (
             <Panel title="Active player" className="shrink-0">
@@ -199,7 +206,6 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
 function DirectorTurnPanel({ state }: { state: GameState }) {
   const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
   const drawPhase = state.turn?.phase === "draw";
-  const drawnCard = state.turn?.drawnCard ?? null;
   const pendingNote = pendingChoiceNote(state);
 
   return (
@@ -235,9 +241,6 @@ function DirectorTurnPanel({ state }: { state: GameState }) {
         ) : (
           <span className="text-xs text-muted">Waiting…</span>
         )}
-        <AnimatePresence>
-          {drawnCard && <DrawnCardChip key={drawnCard.id} card={drawnCard} />}
-        </AnimatePresence>
       </div>
 
       {drawPhase ? (
@@ -302,27 +305,6 @@ function DirectorTradesPanel({ state }: { state: GameState }) {
         <p className="text-xs text-muted">No trade pending</p>
       )}
     </Panel>
-  );
-}
-
-function DrawnCardChip({ card }: { card: PropertyCard }) {
-  const isStrip = card.pays === "strip";
-  const bg = isStrip ? "var(--accent)" : CASINOS[card.pays as CasinoColor].hex;
-  const fg = isStrip ? "#1a1a1a" : CASINOS[card.pays as CasinoColor].textHex;
-  const deckName = isStrip ? "Strip" : CASINOS[card.pays as CasinoColor].name;
-  return (
-    <motion.span
-      initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
-      animate={{ rotateY: 0, opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="flex items-center gap-1.5 rounded-md border border-white/25 px-2 py-1 text-[11px] font-bold shadow-md"
-      style={{ background: bg, color: fg, transformStyle: "preserve-3d" }}
-      title={`Drawn card: ${card.lotId} (${deckName} pays)`}
-    >
-      <span className="rounded-sm bg-black/25 px-1 font-mono text-white">{card.lotId}</span>
-      {deckName} pays
-    </motion.span>
   );
 }
 

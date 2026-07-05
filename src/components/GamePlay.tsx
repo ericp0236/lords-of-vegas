@@ -5,7 +5,7 @@
  *   - mobile: compact player chips under the header
  *   - score track: narrow leftmost column, full height
  *   - info rail (desktop): standings table, tiles left, game log
- *   - center: the board + a slim status strip (hints / turn / drawn card)
+ *   - center: the board + a slim status strip (hints / turn)
  *   - right rail (desktop): deck & discards, your stats, actions, trades
  *   - phones/tablets: actions stay in the bottom dock; reference panels use
  *     slide-up sheets.
@@ -20,7 +20,6 @@ import {
   CASINOS,
   CASINO_COLOR_KEYS,
   type CasinoColor,
-  type PropertyCard,
 } from "@/data/casinoCards";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 import { casinoGroup, casinoPoints } from "@/engine/casinos";
@@ -41,6 +40,7 @@ import {
 } from "@/lib/candidates";
 import { playSound } from "@/lib/sound/SoundManager";
 import { useGameFeedback } from "@/lib/useGameFeedback";
+import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
 import type { useGame } from "@/lib/useGame";
 import { Board, type BoardOverlayDie } from "./Board";
 import { HOUSE_DIE, RollingDie } from "./DieFace";
@@ -101,6 +101,12 @@ export function GamePlay({
 
   useGameFeedback(state, meId);
 
+  const { inRollPhase, rollOverlays } = useReorgRollPhase(
+    state.pendingChoice,
+    state.players,
+    state.turn?.reorgReveal,
+  );
+
   const me = state.players.find((p) => p.id === meId)!;
   const isMyTurn = state.turn?.activePlayerId === meId;
   const inActions = isMyTurn && state.turn?.phase === "actions";
@@ -157,9 +163,14 @@ export function GamePlay({
     return overlays;
   }, [reorgDraft, me.color]);
 
+  const boardOverlayDice = useMemo(() => {
+    if (inRollPhase) return rollOverlays;
+    return reorgOverlayDice;
+  }, [inRollPhase, rollOverlays, reorgOverlayDice]);
+
   // ------------------------------------------------------- eligible lots
   const { eligibleLots, clickableLots } = useMemo(() => {
-    if (myPendingReorg && reorgDraft) {
+    if (myPendingReorg && reorgDraft && !inRollPhase) {
       const slots = reorgDraft.slots;
       const unplaced = slots.filter((lot) => reorgDraft.placements[lot] === undefined);
       return {
@@ -211,6 +222,7 @@ export function GamePlay({
     myPendingVacateLot,
     myPendingReorg,
     reorgDraft,
+    inRollPhase,
   ]);
 
   // ------------------------------------------------------- helpers
@@ -247,10 +259,31 @@ export function GamePlay({
   }
 
   function autoReorgDieIdx(draft: ReorgDraft): number | null {
-    // Only skip the pairing step for the last die — identical values still use tile/die pick.
+    if (draft.remaining.length === 0) return null;
+    const v = draft.remaining[0];
+    if (draft.remaining.every((x) => x === v)) return 0;
     if (draft.remaining.length === 1) return 0;
     return null;
   }
+
+  /** When every remaining die shows the same value, placement doesn't matter — fill all slots. */
+  useEffect(() => {
+    if (inRollPhase || !myPendingReorg || !reorgDraft) return;
+    const { remaining, slots, placements } = reorgDraft;
+    if (remaining.length === 0 || remaining.length !== slots.filter((lot) => placements[lot] === undefined).length) {
+      return;
+    }
+    const v = remaining[0];
+    if (!remaining.every((x) => x === v)) return;
+    const newPlacements = { ...placements };
+    for (const lot of slots) {
+      if (newPlacements[lot] === undefined) newPlacements[lot] = v;
+    }
+    setReorgDraft({ ...reorgDraft, placements: newPlacements, remaining: [] });
+    setSelectedReorgIdx(null);
+    setSelectedReorgLot(null);
+    playSound("diceLand");
+  }, [inRollPhase, myPendingReorg, reorgDraft]);
 
   function handleReorgDieSelect(idx: number) {
     if (!reorgDraft) return;
@@ -336,6 +369,9 @@ export function GamePlay({
       return "All 12 of your dice are on the board — tap one of your dice to move it to the new tile.";
     if (myPendingVacateLot)
       return "All 10 of your lot markers are placed — tap a lot to vacate its marker.";
+    if (inRollPhase && (pending?.kind === "reorgPlacement" || state.turn?.reorgReveal?.length)) {
+      return "Dice rerolling…";
+    }
     if (myPendingReorg && reorgDraft) {
       if (reorgComplete) return "All dice placed — tap Confirm below.";
       if (selectedReorgIdx !== null)
@@ -374,7 +410,8 @@ export function GamePlay({
   return (
     <main className="mx-auto flex h-dvh max-h-dvh w-full max-w-[1600px] flex-col gap-1.5 overflow-hidden px-2 pb-2 pt-1.5 sm:px-3">
       {/* ------------------------------------------------ header */}
-      <header className="flex shrink-0 items-center gap-2.5">
+      <header className="relative flex shrink-0 items-center gap-2.5">
+        {isMyTurn && state.phase === "playing" && <YourTurnBadge color={me.color} />}
         <h1 className="marquee hidden text-lg leading-none sm:block">Lords of Vegas</h1>
         <span className="rounded bg-black/40 px-2 py-0.5 font-mono text-xs font-bold tracking-[0.2em] text-[var(--accent)]">
           {state.roomCode}
@@ -425,12 +462,12 @@ export function GamePlay({
             eligibleLots={eligibleLots}
             clickableLots={clickableLots}
             focusedLots={selectedReorgLot ? new Set([selectedReorgLot]) : undefined}
-            overlayDice={reorgOverlayDice}
+            overlayDice={boardOverlayDice}
             onLotClick={onLotClick}
             className="min-h-0 min-w-0 flex-1"
           />
 
-          {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && (
+          {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && !inRollPhase && (
             <ReorgPlacementBar
               playerColor={me.color}
               remaining={reorgDraft.remaining}
@@ -468,13 +505,10 @@ export function GamePlay({
 
         {/* -------------------------------------------- right rail */}
         <aside className="scrollbar-thin hidden w-[320px] shrink-0 flex-col gap-2 overflow-y-auto lg:flex">
-          <Panel
-            title="Deck & discards"
-            titleClassName="text-[var(--accent)] tracking-[0.12em]"
-            bodyClassName="pt-1"
-          >
+          <Panel bodyClassName="p-2 pt-1">
             <DiscardPiles
               state={state}
+              drawnCard={state.turn?.drawnCard ?? null}
               canDraw={canDraw}
               onDraw={() => void dispatch({ type: "drawCard" })}
             />
@@ -539,16 +573,12 @@ export function GamePlay({
         {sheet === "supply" && (
           <Sheet title="Deck & supply" onClose={() => setSheet(null)}>
             <div className="space-y-3 pt-1">
-              <div>
-                <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-                  Deck & discards
-                </h3>
-                <DiscardPiles
-                  state={state}
-                  canDraw={canDraw}
-                  onDraw={() => void dispatch({ type: "drawCard" })}
-                />
-              </div>
+              <DiscardPiles
+                state={state}
+                drawnCard={state.turn?.drawnCard ?? null}
+                canDraw={canDraw}
+                onDraw={() => void dispatch({ type: "drawCard" })}
+              />
               <div>
                 <TilesLeftPanel state={state} />
               </div>
@@ -666,23 +696,10 @@ function ActionDock({
   openSheet: (s: SheetKind) => void;
 }) {
   const me = state.players.find((p) => p.id === meId)!;
-  const meta = PLAYER_COLORS[me.color];
   const drawPhase = state.turn?.phase === "draw";
-  const drawnCard = state.turn?.drawnCard ?? null;
   const isSidebar = placement === "sidebar";
 
-  const turnBadge = isMyTurn ? (
-    <span
-      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold"
-      style={{ background: meta.hex, color: meta.textHex }}
-    >
-      <span className="relative flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
-      </span>
-      Your turn
-    </span>
-  ) : (
+  const waitingLabel = !isMyTurn ? (
     <span className="px-1 text-xs text-muted">
       {activeName ? (
         <>
@@ -693,7 +710,7 @@ function ActionDock({
         "…"
       )}
     </span>
-  );
+  ) : null;
 
   const showActions = isMyTurn && !hasPending;
 
@@ -757,11 +774,11 @@ function ActionDock({
       <Button
         variant="gold"
         size="md"
-        sound="cardDraw"
-        onClick={() => dispatch({ type: "drawCard" })}
+        sound="open"
+        onClick={() => openSheet("supply")}
         className="flex-1 sm:min-w-[220px] sm:flex-none"
       >
-        Draw a property card
+        Draw from deck →
       </Button>
     ) : (
       <>
@@ -815,12 +832,9 @@ function ActionDock({
           )}
         </AnimatePresence>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {turnBadge}
-          <AnimatePresence>
-            {drawnCard && <DrawnCardChip key={drawnCard.id} card={drawnCard} />}
-          </AnimatePresence>
-        </div>
+        {waitingLabel && (
+          <div className="flex flex-wrap items-center gap-2">{waitingLabel}</div>
+        )}
 
         {sidebarActionGrid}
 
@@ -859,12 +873,9 @@ function ActionDock({
       </AnimatePresence>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="flex items-center gap-2">
-          {turnBadge}
-          <AnimatePresence>
-            {drawnCard && <DrawnCardChip key={drawnCard.id} card={drawnCard} />}
-          </AnimatePresence>
-        </div>
+        {waitingLabel && (
+          <div className="flex items-center gap-2">{waitingLabel}</div>
+        )}
 
         {bottomActionControls && (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5">{bottomActionControls}</div>
@@ -911,33 +922,24 @@ function ActionDock({
 }
 
 // ---------------------------------------------------------------------------
-// Drawn card chip
+// Turn indicator
 // ---------------------------------------------------------------------------
 
-function DrawnCardChip({ card }: { card: PropertyCard }) {
-  const isStrip = card.pays === "strip";
-  const bg = isStrip ? "var(--accent)" : CASINOS[card.pays as CasinoColor].hex;
-  const fg = isStrip ? "#1a1a1a" : CASINOS[card.pays as CasinoColor].textHex;
-  const deckName = isStrip ? "Strip" : CASINOS[card.pays as CasinoColor].name;
+function YourTurnBadge({ color }: { color: keyof typeof PLAYER_COLORS }) {
+  const meta = PLAYER_COLORS[color];
   return (
-    <motion.span
-      initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
-      animate={{ rotateY: 0, opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="flex items-center gap-1.5 rounded-md border border-white/25 px-2 py-1 text-[11px] font-bold shadow-md"
-      style={{ background: bg, color: fg, transformStyle: "preserve-3d" }}
-      title={`Drawn card: ${card.lotId} (${deckName} pays)`}
+    <span
+      className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold shadow-lg"
+      style={{ background: meta.hex, color: meta.textHex }}
     >
-      <span className="rounded-sm bg-black/25 px-1 font-mono text-white">{card.lotId}</span>
-      {deckName} pays
-    </motion.span>
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
+      </span>
+      Your turn
+    </span>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Turn banner overlay
-// ---------------------------------------------------------------------------
 
 function TurnBanner({ isMyTurn, color }: { isMyTurn: boolean; color: keyof typeof PLAYER_COLORS }) {
   const [show, setShow] = useState(false);

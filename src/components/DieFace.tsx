@@ -109,6 +109,8 @@ export function RollingDie({
   palette,
   size = 28,
   rollOnMount = false,
+  longRoll = false,
+  fromValue,
 }: {
   value: number;
   color?: PlayerColor;
@@ -116,28 +118,55 @@ export function RollingDie({
   size?: number;
   /** Also play the roll animation when first mounted */
   rollOnMount?: boolean;
+  /** Longer shuffle — used for reorganize rerolls */
+  longRoll?: boolean;
+  /** Animate from a specific prior value (reorganize reveal) */
+  fromValue?: number;
 }) {
-  const [display, setDisplay] = useState(value);
+  const [display, setDisplay] = useState(() => {
+    if (fromValue !== undefined) return fromValue;
+    if (rollOnMount) return 1 + Math.floor(Math.random() * 6);
+    return value;
+  });
   const [rolling, setRolling] = useState(false);
-  const prevRef = useRef<number | null>(rollOnMount ? null : value);
+  const tickCount = longRoll ? 11 : 6;
+  const tickMs = longRoll ? 95 : 75;
+  const wobbleDuration = longRoll ? 0.9 : 0.5;
+  const revealKey =
+    fromValue !== undefined ? `reveal:${fromValue}->${value}:${longRoll}` : null;
+  const revealRanRef = useRef<string | null>(null);
+  const prevRef = useRef<number | null>(
+    rollOnMount || fromValue !== undefined ? null : value,
+  );
 
   useEffect(() => {
-    if (prevRef.current === value) return;
-    prevRef.current = value;
-    setRolling(true);
+    const isReveal = fromValue !== undefined;
+    if (isReveal) {
+      if (revealRanRef.current === revealKey) return;
+      revealRanRef.current = revealKey;
+      prevRef.current = value;
+      setDisplay(fromValue);
+      setRolling(true);
+    } else if (prevRef.current === value) {
+      return;
+    } else {
+      prevRef.current = value;
+      setRolling(true);
+    }
+
     let ticks = 0;
     const interval = setInterval(() => {
       ticks += 1;
-      if (ticks >= 6) {
+      if (ticks >= tickCount) {
         clearInterval(interval);
         setDisplay(value);
         setRolling(false);
       } else {
         setDisplay(1 + Math.floor(Math.random() * 6));
       }
-    }, 75);
+    }, tickMs);
     return () => clearInterval(interval);
-  }, [value]);
+  }, [value, fromValue, revealKey, tickCount, tickMs]);
 
   return (
     <motion.div
@@ -146,7 +175,7 @@ export function RollingDie({
           ? { rotate: [0, -14, 11, -8, 5, 0], scale: [1, 1.15, 1.1, 1.05, 1] }
           : { rotate: 0, scale: 1 }
       }
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: wobbleDuration, ease: "easeOut" }}
       className="inline-flex"
     >
       <DieFace value={display} color={color} palette={palette} size={size} />

@@ -1,12 +1,12 @@
 "use client";
 
-import { motion } from "motion/react";
-import { CASINOS, type CasinoColor } from "@/data/casinoCards";
+import Image from "next/image";
+import { type PayTarget, type PropertyCard } from "@/data/casinoCards";
 import type { GameState } from "@/engine/types";
-import { playSound } from "@/lib/sound/SoundManager";
+import { CARD_BACK, CASINO_GLYPHS, PropertyDeckCard } from "./PropertyDeckCard";
 import { AnimatedNumber } from "./ui/AnimatedNumber";
 
-const ORDER: (CasinoColor | "strip")[] = [
+const ORDER: PayTarget[] = [
   "albion",
   "sphinx",
   "vega",
@@ -15,118 +15,129 @@ const ORDER: (CasinoColor | "strip")[] = [
   "strip",
 ];
 
+/** Max discard slots shown per deck row (matches physical deck sizes). */
+const SLOT_COUNTS: Record<PayTarget, number> = {
+  albion: 9,
+  sphinx: 9,
+  vega: 9,
+  tivoli: 9,
+  pioneer: 9,
+  strip: 4,
+};
+
+const ROW_LABELS: Record<PayTarget, string> = {
+  albion: "Albion",
+  sphinx: "Sphinx",
+  vega: "Vega",
+  tivoli: "Tivoli",
+  pioneer: "Pioneer",
+  strip: "The Strip",
+};
+
 export function DiscardPiles({
   state,
+  drawnCard = null,
   canDraw = false,
   onDraw,
   compact = false,
+  showHeader = true,
 }: {
   state: GameState;
-  /** When true, the card back becomes the draw button. */
+  drawnCard?: PropertyCard | null;
   canDraw?: boolean;
   onDraw?: () => void;
-  /** Stack pills vertically without the card (Director view). */
+  /** Smaller card slots for tight layouts. */
   compact?: boolean;
+  /** Ornate section title (omit when a parent already provides one). */
+  showHeader?: boolean;
 }) {
   return (
     <div className={`deck-discards ${compact ? "deck-discards--compact" : ""}`}>
-      <div className="deck-discards__list">
-        {ORDER.map((deck) => {
-          const count = state.discard[deck]?.length ?? 0;
-          const isStrip = deck === "strip";
-          const label = isStrip ? "Strip" : CASINOS[deck as CasinoColor].name;
-          const tone = isStrip ? "strip" : deck;
-          return (
-            <div
+      {showHeader && (
+        <header className="deck-discards__header">
+          <span className="deck-discards__header-diamond" aria-hidden="true" />
+          <h3 className="deck-discards__title">Deck &amp; Discards</h3>
+          <span className="deck-discards__header-diamond" aria-hidden="true" />
+        </header>
+      )}
+
+      <div className="deck-discards__body">
+        <div className="deck-discards__rows">
+          {ORDER.map((deck) => (
+            <DiscardRow
               key={deck}
-              className={`discard-pill discard-pill--${tone}`}
-              title={`${label} discards: ${count}`}
-            >
-              <span>{label}</span>
-              <AnimatedNumber value={count} className="discard-pill__count" />
-            </div>
-          );
-        })}
-        {compact && (
-          <div className="discard-pill discard-pill--deck" title={`Cards remaining: ${state.deck.length}`}>
-            <span>Deck</span>
-            <AnimatedNumber value={state.deck.length} className="discard-pill__count" />
-          </div>
+              deck={deck}
+              count={state.discard[deck]?.length ?? 0}
+              slots={SLOT_COUNTS[deck]}
+            />
+          ))}
+        </div>
+
+        {!compact && (
+          <PropertyDeckCard
+            drawnCard={drawnCard}
+            canDraw={canDraw}
+            deckCount={state.deck.length}
+            onDraw={onDraw}
+          />
         )}
       </div>
 
-      {!compact && (
-        <DeckCardBack canDraw={canDraw} deckCount={state.deck.length} onDraw={onDraw} />
+      {compact && (
+        <div className="deck-discards__compact-count">
+          <span className="deck-discards__count-label">Cards in deck</span>
+          <AnimatedNumber value={state.deck.length} className="deck-discards__count-value" />
+        </div>
       )}
     </div>
   );
 }
 
-function DeckCardBack({
-  canDraw,
-  deckCount,
-  onDraw,
+function DiscardRow({
+  deck,
+  count,
+  slots,
 }: {
-  canDraw: boolean;
-  deckCount: number;
-  onDraw?: () => void;
+  deck: PayTarget;
+  count: number;
+  slots: number;
 }) {
-  const inner = (
-    <>
-      <CardBackArt />
-      <AnimatedNumber value={deckCount} className="deck-card-back__count" />
-      {canDraw && <span className="deck-card-back__hint">Draw</span>}
-    </>
-  );
-
-  if (canDraw && onDraw) {
-    return (
-      <div className="deck-card-slot deck-card-slot--ready">
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 420, damping: 24 }}
-          onClick={() => {
-            playSound("cardDraw");
-            onDraw();
-          }}
-          className="deck-card-back deck-card-back--interactive focus-ring"
-          aria-label={`Draw a property card (${deckCount} left in deck)`}
-        >
-          {inner}
-        </motion.button>
+  const label = ROW_LABELS[deck];
+  return (
+    <div
+      className={`discard-row discard-row--${deck}`}
+      title={`${label}: ${count} discarded`}
+    >
+      <div className="discard-row__icon-wrap">
+        <Image
+          src={CASINO_GLYPHS[deck]}
+          alt=""
+          width={40}
+          height={40}
+          className="discard-row__icon"
+          aria-hidden
+        />
       </div>
-    );
-  }
-
-  return (
-    <div className="deck-card-slot" title={`${deckCount} cards in deck`}>
-      <div className="deck-card-back">{inner}</div>
-    </div>
-  );
-}
-
-function CardBackArt() {
-  return (
-    <>
-      <svg className="deck-card-back__filigree" viewBox="0 0 100 140" aria-hidden="true">
-        <circle cx="50" cy="70" r="34" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.35" />
-        <circle cx="50" cy="70" r="26" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.28" />
-        <circle cx="50" cy="70" r="18" fill="none" stroke="currentColor" strokeWidth="0.4" opacity="0.22" />
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-          <g key={deg} transform={`rotate(${deg} 50 70)`}>
-            <path
-              d="M50 38c2 0 3.5 1.5 3.5 3.5s-1.5 3.5-3.5 3.5-3.5-1.5-3.5-3.5 1.5-3.5 3.5-3.5z"
-              fill="currentColor"
-              opacity="0.35"
-            />
-          </g>
+      <span className="discard-row__name">{label}</span>
+      <div className="discard-row__slots" style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
+        {Array.from({ length: slots }, (_, i) => (
+          <div
+            key={i}
+            className={`discard-slot ${i < count ? "discard-slot--filled" : "discard-slot--empty"}`}
+          >
+            {i < count && (
+              <Image
+                src={CARD_BACK}
+                alt=""
+                width={24}
+                height={34}
+                className="discard-slot__card"
+                aria-hidden
+              />
+            )}
+          </div>
         ))}
-      </svg>
-      <div className="deck-card-back__title">
-        <span>Lords</span>
-        <span>Vegas</span>
       </div>
-    </>
+    </div>
   );
 }

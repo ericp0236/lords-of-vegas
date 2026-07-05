@@ -127,12 +127,21 @@ export type PendingChoice =
       waiting: Record<string, number[]>;
       /** playerId -> lots (within casinoLots) that player's dice came from */
       slots: Record<string, LotId[]>;
+      /** Per-lot reroll results for UI reveal animation (optional on legacy saves) */
+      rerolls?: ReorgReroll[];
       continuation: Continuation;
     };
 
 // ---------------------------------------------------------------------------
 // Turn
 // ---------------------------------------------------------------------------
+
+export interface ReorgReroll {
+  lotId: LotId;
+  ownerId: string;
+  from: number;
+  to: number;
+}
 
 export interface TurnState {
   number: number;
@@ -143,6 +152,8 @@ export interface TurnState {
   gambleUsed: boolean;
   /** Lots whose dice have been reorganized this turn */
   reorganizedLots: LotId[];
+  /** Latest reorganize reroll results for UI reveal (cleared on end turn) */
+  reorgReveal: ReorgReroll[] | null;
 }
 
 // ---------------------------------------------------------------------------

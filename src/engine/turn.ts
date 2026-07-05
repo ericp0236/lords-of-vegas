@@ -413,6 +413,7 @@ export function endTurn(state: GameState): StepResult | { error: string } {
       drawnCard: null,
       gambleUsed: false,
       reorganizedLots: [],
+      reorgReveal: null,
     },
   };
   const events = [makeEvent(s, "draw", `${next.name}'s turn begins.`)];

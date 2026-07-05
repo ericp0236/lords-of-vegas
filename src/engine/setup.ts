@@ -280,6 +280,7 @@ export function startGame(
       drawnCard: null,
       gambleUsed: false,
       reorganizedLots: [],
+      reorgReveal: null,
     },
   };
   return { state: appendLog(s, events), events };

@@ -71,6 +71,7 @@ export function inActionsPhase(state: GameState, playerId: string): GameState {
       drawnCard: null,
       gambleUsed: false,
       reorganizedLots: [],
+      reorgReveal: null,
     },
   };
 }

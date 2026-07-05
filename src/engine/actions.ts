@@ -28,6 +28,7 @@ import type {
   Continuation,
   GameState,
   LogEvent,
+  ReorgReroll,
   Rng,
 } from "./types";
 
@@ -319,24 +320,30 @@ export function actionReorganize(
     return { error: `Reorganizing costs $${totalPips}M ($1M per pip in the casino).` };
 
   let s = addMoney(state, playerId, -totalPips);
-  const events: LogEvent[] = [
-    makeEvent(
-      s,
-      "action",
-      `${player.name} reorganizes the casino at ${group.join(", ")} for $${totalPips}M — all dice are rerolled.`,
-    ),
-  ];
 
   // Reroll all dice; each player's dice return to tiles they came from.
   // Players with 2+ dice choose the assignment (pending choice).
   const byPlayer: Record<string, { lots: LotId[]; newValues: number[] }> = {};
+  const rerollLines: string[] = [];
+  const rerolls: ReorgReroll[] = [];
   for (const id of group) {
     const d = s.board[id].die;
     if (!d) continue;
+    const rolled = rollDie(rng);
+    rerollLines.push(`${id}: ${d.value}→${rolled}`);
+    rerolls.push({ lotId: id, ownerId: d.owner, from: d.value, to: rolled });
     byPlayer[d.owner] ??= { lots: [], newValues: [] };
     byPlayer[d.owner].lots.push(id);
-    byPlayer[d.owner].newValues.push(rollDie(rng));
+    byPlayer[d.owner].newValues.push(rolled);
   }
+
+  const events: LogEvent[] = [
+    makeEvent(
+      s,
+      "action",
+      `${player.name} reorganizes the casino at ${group.join(", ")} for $${totalPips}M. Rerolls: ${rerollLines.join(", ")}.`,
+    ),
+  ];
 
   const board: Board = { ...s.board };
   const waiting: Record<string, number[]> = {};
@@ -357,7 +364,7 @@ export function actionReorganize(
   s = {
     ...s,
     board,
-    turn: { ...turn, reorganizedLots: [...turn.reorganizedLots, ...group] },
+    turn: { ...turn, reorganizedLots: [...turn.reorganizedLots, ...group], reorgReveal: rerolls },
   };
 
   if (Object.keys(waiting).length > 0) {
@@ -368,6 +375,7 @@ export function actionReorganize(
         casinoLots: group,
         waiting,
         slots,
+        rerolls,
         continuation,
       },
     };

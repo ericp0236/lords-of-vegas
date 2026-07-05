@@ -23,6 +23,8 @@ import { ParkingLotMarkings } from "./ParkingLotMarkings";
 export interface BoardOverlayDie {
   value: number;
   color: PlayerColor;
+  /** When set, die animates from this pip count to `value` (reorganize reveal). */
+  fromValue?: number;
 }
 
 export interface BoardProps {
@@ -121,6 +123,7 @@ interface LotCellProps {
   focused: boolean;
   overlayDie: BoardOverlayDie | null;
   bossOutline: BossOutline | null;
+  longRoll: boolean;
   onClick?: (lotId: LotId) => void;
 }
 
@@ -139,6 +142,8 @@ function lotCellPropsEqual(a: LotCellProps, b: LotCellProps): boolean {
     a.parkingOwnerName === b.parkingOwnerName &&
     a.overlayDie?.value === b.overlayDie?.value &&
     a.overlayDie?.color === b.overlayDie?.color &&
+    a.overlayDie?.fromValue === b.overlayDie?.fromValue &&
+    a.longRoll === b.longRoll &&
     a.bossOutline?.color === b.bossOutline?.color &&
     a.bossOutline?.edges.n === b.bossOutline?.edges.n &&
     a.bossOutline?.edges.e === b.bossOutline?.edges.e &&
@@ -163,6 +168,7 @@ const LotCellInner = memo(function LotCell({
   focused,
   overlayDie,
   bossOutline,
+  longRoll,
   onClick,
 }: LotCellProps) {
   const lot = BOARD_LOTS[lotId];
@@ -228,7 +234,14 @@ const LotCellInner = memo(function LotCell({
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
             className={overlayDie ? "reorg-preview-die" : undefined}
           >
-            <RollingDie value={displayDie.value} color={displayDie.color} size={30} />
+            <RollingDie
+              value={displayDie.value}
+              color={displayDie.color}
+              size={30}
+              longRoll={longRoll || displayDie.fromValue !== undefined}
+              fromValue={displayDie.fromValue}
+              rollOnMount={displayDie.fromValue !== undefined}
+            />
           </motion.div>
         ) : (
           <span
@@ -312,6 +325,7 @@ function Block({
   overlayDice,
   focusedLots,
   bossOutlines,
+  reorganizedLots,
   onLotClick,
 }: {
   state: GameState;
@@ -321,6 +335,7 @@ function Block({
   overlayDice?: Partial<Record<LotId, BoardOverlayDie>>;
   focusedLots?: Set<LotId>;
   bossOutlines: Partial<Record<LotId, BossOutline>>;
+  reorganizedLots: Set<LotId>;
   onLotClick?: (lotId: LotId) => void;
 }) {
   const geo = BLOCKS[block];
@@ -354,6 +369,7 @@ function Block({
             focused={focusedLots?.has(lotId) ?? false}
             overlayDie={overlayDice?.[lotId] ?? null}
             bossOutline={bossOutlines[lotId] ?? null}
+            longRoll={reorganizedLots.has(lotId)}
             onClick={onLotClick}
           />
         );
@@ -396,6 +412,10 @@ export function Board({
     () => computeBossOutlines(state),
     [state.board, state.players],
   );
+  const reorganizedLots = useMemo(
+    () => new Set(state.turn?.reorganizedLots ?? []),
+    [state.turn?.reorganizedLots],
+  );
 
   // All sizes are expressed in fr units of one lot cell so every cell on the
   // board renders at exactly the same size: 3 cells per side column, 8 cell
@@ -417,6 +437,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
           <Street name="Sahara Ave" connect="strip-right" />
@@ -428,6 +449,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
           <Street name="Flamingo Rd" connect="strip-right" />
@@ -439,6 +461,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
         </div>
@@ -472,6 +495,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
           <Street name="Sahara Ave" connect="strip-left" />
@@ -483,6 +507,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
           <Street name="Harmon Ave" connect="strip-left" />
@@ -494,6 +519,7 @@ export function Board({
             overlayDice={overlayDice}
             focusedLots={focusedLots}
             bossOutlines={bossOutlines}
+            reorganizedLots={reorganizedLots}
             onLotClick={onLotClick}
           />
         </div>
