@@ -112,7 +112,7 @@ export function scoreCasinos(state: GameState, groups: string[][]): StepResult {
       makeEvent(
         s,
         "scoring",
-        `${boss.name}'s ${pts}-tile casino (${group.join(", ")}) scores — marker moves to ${SCORE_TRACK[newIndex]}${lost > 0 ? ` (${lost} point${lost === 1 ? "" : "s"} lost at a break)` : ""}.`,
+        `${boss.name}'s ${pts}-tile casino (${group.join(", ")}) scores — marker ${newIndex === boss.trackIndex ? "stays at" : "moves to"} ${SCORE_TRACK[newIndex]}${lost > 0 ? ` (${lost} point${lost === 1 ? "" : "s"} lost at a break)` : ""}.`,
         { playerId: bossId, points: pts, track: SCORE_TRACK[newIndex] },
       ),
     );

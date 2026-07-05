@@ -23,7 +23,7 @@ const limelight = Limelight({
 export const metadata: Metadata = {
   title: "Lords of Vegas Online",
   description:
-    "Play the Lords of Vegas board game online with 3-6 remote players, complete with a YouTube-friendly Director view.",
+    "Play the Lords of Vegas board game online with 3-6 remote players, complete with a YouTube-friendly Spectator view.",
 };
 
 export const viewport: Viewport = {

@@ -231,7 +231,7 @@ export function GamePlay({
             target="_blank"
             className="focus-ring rounded-md border border-[var(--border)] px-2 py-1.5 text-xs text-muted transition-colors hover:border-white/30 hover:text-white"
           >
-            Director ↗
+            Spectator ↗
           </Link>
         </div>
       </header>

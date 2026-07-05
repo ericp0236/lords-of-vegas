@@ -69,7 +69,7 @@ export default function LandingPage() {
       >
         <h1 className="marquee neon-flicker text-center text-5xl sm:text-7xl">Lords of Vegas</h1>
         <p className="mt-4 text-center text-sm text-muted">
-          Build casinos. Boss the Strip. 3–6 remote players, plus a Director view for recording.
+          Build casinos. Boss the Strip. 3–6 remote players, plus a Spectator view for recording.
         </p>
       </motion.div>
 
@@ -84,7 +84,7 @@ export default function LandingPage() {
             [
               ["create", "Host a table"],
               ["join", "Join"],
-              ["director", "Director"],
+              ["director", "Spectator"],
             ] as [Tab, string][]
           ).map(([t, label]) => (
             <button
@@ -110,75 +110,77 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {tab === "create" && (
-          <div className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
-                Your name
-              </span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={20}
-                placeholder="e.g. Sam"
-                className="focus-ring w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--accent)]"
-              />
-            </label>
-            <div>
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
-                Your color
-              </span>
-              <ColorPicker value={color} onChange={setColor} />
+        <div className="min-h-[12.5rem]">
+          {tab === "create" && (
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+                  Your name
+                </span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={20}
+                  placeholder="e.g. Sam"
+                  className="focus-ring w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--accent)]"
+                />
+              </label>
+              <div>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+                  Your color
+                </span>
+                <ColorPicker value={color} onChange={setColor} />
+              </div>
+              <Button variant="gold" size="md" onClick={handleCreate} disabled={busy} className="w-full py-2.5">
+                {busy ? "Opening table…" : "Open the table"}
+              </Button>
             </div>
-            <Button variant="gold" size="md" onClick={handleCreate} disabled={busy} className="w-full py-2.5">
-              {busy ? "Opening table…" : "Open the table"}
-            </Button>
-          </div>
-        )}
+          )}
 
-        {(tab === "join" || tab === "director") && (
-          <div className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
-                Room code
-              </span>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                maxLength={4}
-                placeholder="ABCD"
-                autoCapitalize="characters"
-                autoComplete="off"
-                className="focus-ring w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2.5 text-center font-mono text-lg tracking-[0.5em] outline-none transition-colors focus:border-[var(--accent)]"
-              />
-            </label>
-            <Button
-              variant="gold"
-              size="md"
-              onClick={() => handleGo(tab === "join" ? "game" : "director")}
-              disabled={busy}
-              className="w-full py-2.5"
-            >
-              {busy ? "Looking up…" : tab === "join" ? "Join the table" : "Open Director view"}
-            </Button>
-            {tab === "director" && (
-              <p className="text-xs text-muted">
-                The Director view is a read-only, 16:9 layout with the full game log and optional
+          {(tab === "join" || tab === "director") && (
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+                  Room code
+                </span>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  maxLength={4}
+                  placeholder="ABCD"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  className="focus-ring w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2.5 text-center font-mono text-lg tracking-[0.5em] outline-none transition-colors focus:border-[var(--accent)]"
+                />
+              </label>
+              <Button
+                variant="gold"
+                size="md"
+                onClick={() => handleGo(tab === "join" ? "game" : "director")}
+                disabled={busy}
+                className="w-full py-2.5"
+              >
+                {busy ? "Looking up…" : tab === "join" ? "Join the table" : "Open Spectator view"}
+              </Button>
+              <p className={`text-xs text-muted ${tab === "director" ? "" : "invisible"}`}>
+                The Spectator view is a read-only, 16:9 layout with the full game log and optional
                 overlays — built for YouTube recording.
               </p>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
-        {error && (
-          <motion.p
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 text-sm text-[var(--accent-2)]"
-          >
-            {error}
-          </motion.p>
-        )}
+        <div className="mt-4 min-h-5">
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-sm text-[var(--accent-2)]"
+            >
+              {error}
+            </motion.p>
+          )}
+        </div>
       </motion.div>
     </main>
   );
