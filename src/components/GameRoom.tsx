@@ -13,6 +13,7 @@ import { SCORE_TRACK } from "@/data/scoreTrack";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/engine/setup";
 import type { GameState } from "@/engine/types";
 import { generateId } from "@/lib/gameApi";
+import { PlayerCarMarker } from "./ui/MiniIcons";
 import { loadIdentity, saveIdentity, type StoredIdentity } from "@/lib/identity";
 import { playSound } from "@/lib/sound/SoundManager";
 import { useGame } from "@/lib/useGame";
@@ -300,10 +301,7 @@ function Lobby({
                 key={r.id}
                 className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-black/20 p-2.5"
               >
-                <span
-                  className="h-3.5 w-3.5 rounded-full border border-white/30"
-                  style={{ background: PLAYER_COLORS[r.color].hex }}
-                />
+                <PlayerCarMarker color={PLAYER_COLORS[r.color].hex} size={16} />
                 <span className="text-sm font-semibold">{r.name}</span>
                 {isHost ? (
                   <span className="ml-auto flex gap-2">
@@ -418,10 +416,7 @@ function GameOver({ state, roomCode }: { state: GameState; roomCode: string }) {
               }`}
             >
               <span className="w-5 text-right font-mono text-muted">{i + 1}.</span>
-              <span
-                className="h-3 w-3 rounded-full border border-white/30"
-                style={{ background: PLAYER_COLORS[p.color].hex }}
-              />
+              <PlayerCarMarker color={PLAYER_COLORS[p.color].hex} size={14} />
               <span className="font-semibold">{p.name}</span>
               {i === 0 && (
                 <span className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black">

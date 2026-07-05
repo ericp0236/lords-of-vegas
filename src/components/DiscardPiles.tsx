@@ -130,30 +130,3 @@ function CardBackArt() {
     </>
   );
 }
-
-export function TileSupply({
-  state,
-  className = "flex-wrap",
-}: {
-  state: GameState;
-  className?: string;
-}) {
-  return (
-    <div className={`flex gap-1.5 ${className}`}>
-      {(Object.keys(CASINOS) as CasinoColor[]).map((c) => (
-        <div
-          key={c}
-          className="flex items-center justify-between gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
-          style={{ background: CASINOS[c].hex, color: CASINOS[c].textHex }}
-          title={`${CASINOS[c].name} tiles remaining`}
-        >
-          {CASINOS[c].name}
-          <AnimatedNumber
-            value={state.tileSupply[c]}
-            className="rounded-sm bg-black/25 px-1 font-mono text-white"
-          />
-        </div>
-      ))}
-    </div>
-  );
-}

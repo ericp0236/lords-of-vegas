@@ -86,6 +86,66 @@ export function ActionBarButton({
   );
 }
 
+/** Full-width gold-framed End Turn bar (sidebar + mobile dock). */
+export function EndTurnButton({
+  onClick,
+  disabled = false,
+  className = "",
+  staticDisplay = false,
+}: {
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  /** Read-only preview (Director view). */
+  staticDisplay?: boolean;
+}) {
+  const content = (
+    <>
+      <span className="end-turn-btn__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="M5.5 12.5l4.2 4.2L18.5 8"
+            stroke="currentColor"
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <span className="end-turn-btn__label">End Turn</span>
+    </>
+  );
+
+  if (staticDisplay) {
+    return (
+      <div
+        className={`end-turn-btn end-turn-btn--static ${className}`}
+        aria-hidden="true"
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <motion.button
+      type="button"
+      whileTap={disabled ? undefined : { scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        playSound("click");
+        onClick?.();
+      }}
+      className={`end-turn-btn focus-ring ${className}`}
+      aria-label="End turn"
+    >
+      {content}
+    </motion.button>
+  );
+}
+
 function ActionIcon({ kind }: { kind: ActionTileKind }) {
   switch (kind) {
     case "build":

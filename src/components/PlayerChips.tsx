@@ -12,7 +12,7 @@ import { SCORE_TRACK } from "@/data/scoreTrack";
 import { diceOnBoard, markersOnBoard } from "@/engine/helpers";
 import type { GameState } from "@/engine/types";
 import { AnimatedNumber } from "./ui/AnimatedNumber";
-import { MiniDie, MiniMarker } from "./ui/MiniIcons";
+import { MiniDie, MiniMarker, PlayerCarMarker } from "./ui/MiniIcons";
 import { MoneyValue } from "./ui/MoneyValue";
 
 function orderedPlayers(state: GameState) {
@@ -67,11 +67,8 @@ export function PlayerStandingsTable({
               >
                 <td className="py-1 pr-1">
                   <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full border border-white/35"
-                        style={{ background: meta.hex }}
-                      />
+                    <span className="relative flex shrink-0 items-center">
+                      <PlayerCarMarker color={meta.hex} size={12} />
                       {isActive && (
                         <span
                           className="absolute inset-0 animate-ping rounded-full opacity-60"
@@ -136,11 +133,8 @@ export function PlayerChips({
               isActive ? "bg-[var(--surface-2)]" : "bg-[var(--surface)]"
             }`}
           >
-            <span className="relative flex h-3 w-3 shrink-0">
-              <span
-                className="h-3 w-3 rounded-full border border-white/40"
-                style={{ background: meta.hex }}
-              />
+            <span className="relative flex shrink-0 items-center">
+              <PlayerCarMarker color={meta.hex} size={14} />
               {isActive && (
                 <span
                   className="absolute inset-0 animate-ping rounded-full opacity-60"

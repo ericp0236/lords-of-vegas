@@ -2,28 +2,30 @@
 
 /**
  * Director view: read-only, 16:9 / 1080p-friendly layout for YouTube
- * recording. Shows the full public game state, the complete game log
- * (from the game_events table), and optional overlays (on by default).
+ * recording. Mirrors the player board layout with full game log, optional
+ * overlays, and no action controls.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { CASINOS, type CasinoColor, type PropertyCard } from "@/data/casinoCards";
 import { PLAYER_COLORS } from "@/data/playerColors";
 import { SCORE_TRACK } from "@/data/scoreTrack";
-import { diceOnBoard, markersOnBoard } from "@/engine/helpers";
-import type { GameState } from "@/engine/types";
+import type { ActionCommand, GameState, TradeStep } from "@/engine/types";
 import { fetchEvents, type GameEventRow } from "@/lib/gameApi";
 import { supabase } from "@/lib/supabaseClient";
 import { useGame } from "@/lib/useGame";
 import { useGameFeedback } from "@/lib/useGameFeedback";
 import { Board } from "./Board";
 import { Confetti } from "./fx/Confetti";
-import { DiscardPiles, TileSupply } from "./DiscardPiles";
+import { DiscardPiles } from "./DiscardPiles";
+import { TilesLeftPanel } from "./TilesLeftPanel";
 import { LogPanel, type LogLine } from "./LogPanel";
+import { MyStatsPanel } from "./MyStatsPanel";
+import { PlayerStandingsTable } from "./PlayerChips";
 import { ScoreTrackPanel } from "./ScoreTrackPanel";
-import { AnimatedNumber } from "./ui/AnimatedNumber";
-import { MiniDie, MiniMarker } from "./ui/MiniIcons";
-import { MoneyValue } from "./ui/MoneyValue";
+import { ActionTileButton, EndTurnButton, type ActionTileKind } from "./ui/ActionTileButton";
+import { Panel } from "./ui/Panel";
 import { SoundToggle } from "./ui/SoundToggle";
 
 interface Overlays {
@@ -31,6 +33,15 @@ interface Overlays {
   payouts: boolean;
   scoring: boolean;
 }
+
+const ACTION_TILES: ActionTileKind[] = [
+  "build",
+  "sprawl",
+  "remodel",
+  "raise",
+  "reorganize",
+  "gamble",
+];
 
 export function DirectorView({ roomCode }: { roomCode: string }) {
   const game = useGame(roomCode);
@@ -42,7 +53,6 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
   const [showControls, setShowControls] = useState(false);
   const events = useFullLog(game.row?.id);
 
-  // Table sounds for the recording (mute with the hover toggle if unwanted).
   useGameFeedback(game.state);
 
   if (game.loading) {
@@ -75,53 +85,84 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
     );
   }
 
+  const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
+
   return (
     <main
-      className="relative mx-auto flex h-screen max-h-screen w-full flex-col gap-2 overflow-hidden p-3"
+      className="relative mx-auto flex h-screen max-h-screen w-full flex-col gap-1.5 overflow-hidden p-2 sm:p-3"
       style={{ aspectRatio: "16 / 9", maxWidth: "calc(100vh * 16 / 9)" }}
       onMouseMove={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
-      {/* Top banner */}
-      <TopBanner state={state} enabled={overlays.turnBanner} />
+      <header className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+        <h1 className="marquee text-lg leading-none">Lords of Vegas</h1>
+        <span className="rounded bg-black/40 px-2 py-0.5 font-mono text-xs font-bold tracking-[0.2em] text-[var(--accent)]">
+          {state.roomCode}
+        </span>
+        <span className="text-[11px] text-muted">Turn {state.turn?.number ?? "—"}</span>
+        {overlays.turnBanner && state.phase === "playing" && active && (
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold"
+              style={{
+                background: PLAYER_COLORS[active.color].hex,
+                color: PLAYER_COLORS[active.color].textHex,
+              }}
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
+              </span>
+              {active.name}
+              <span className="text-[10px] font-semibold opacity-80">
+                {state.turn?.phase === "draw" ? "drawing" : "acting"}
+              </span>
+            </span>
+          </div>
+        )}
+      </header>
 
-      <div className="flex min-h-0 flex-1 gap-3">
-        {/* Left rail: deck / discards + tile supply */}
-        <div className="flex w-44 shrink-0 flex-col gap-2">
-          <section className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
-            <h2 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-              Deck &amp; discards
-            </h2>
-            <DiscardPiles state={state} compact />
-          </section>
-          <section className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
-            <h2 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-              Tiles left
-            </h2>
-            <TileSupply state={state} className="flex-col" />
-          </section>
-          <ScoreTrackPanel state={state} />
-        </div>
+      <div className="flex min-h-0 flex-1 gap-2.5">
+        <aside className="min-h-0 w-14 shrink-0 self-stretch">
+          <ScoreTrackPanel state={state} layout="column" className="min-h-0 flex-1 rounded-xl" />
+        </aside>
 
-        {/* Board */}
-        <Board state={state} className="min-h-0 min-w-0 flex-[1.35]" />
-
-        {/* Right rail: standings + full log */}
-        <div className="flex w-[340px] shrink-0 flex-col gap-2">
-          <Standings state={state} />
-          <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-            <h2 className="mb-1 text-xs font-bold uppercase tracking-wide text-muted">
-              Full game log
-            </h2>
+        <aside className="scrollbar-thin flex w-52 shrink-0 flex-col gap-2 self-stretch overflow-y-auto">
+          <Panel title="Standings" className="shrink-0">
+            <PlayerStandingsTable state={state} />
+          </Panel>
+          <TilesLeftPanel state={state} className="shrink-0" />
+          <Panel
+            title="Full game log"
+            className="flex min-h-0 flex-1 flex-col"
+            bodyClassName="flex min-h-0 flex-1 flex-col"
+          >
             <LogPanel lines={events} className="min-h-0 flex-1" />
-          </section>
-        </div>
+          </Panel>
+        </aside>
+
+        <Board state={state} className="min-h-0 min-w-0 flex-1" />
+
+        <aside className="scrollbar-thin flex w-[320px] shrink-0 flex-col gap-2 overflow-y-auto">
+          <Panel
+            title="Deck & discards"
+            titleClassName="text-[var(--accent)] tracking-[0.12em]"
+            bodyClassName="pt-1"
+          >
+            <DiscardPiles state={state} />
+          </Panel>
+          {active && (
+            <Panel title="Active player" className="shrink-0">
+              <MyStatsPanel state={state} playerId={active.id} />
+            </Panel>
+          )}
+          <DirectorTurnPanel state={state} />
+          <DirectorTradesPanel state={state} />
+        </aside>
       </div>
 
-      {/* Event toasts (payouts / scoring) */}
       <EventToasts events={events} overlays={overlays} />
 
-      {/* Director controls: only visible on hover, never recorded accidentally */}
       <div
         className={`absolute right-3 top-3 z-40 flex gap-2 rounded-lg border border-[var(--border)] bg-black/80 p-2 text-xs transition-opacity ${
           showControls ? "opacity-100" : "opacity-0"
@@ -149,6 +190,187 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
       {state.phase === "ended" && <WinnerOverlay state={state} />}
     </main>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Read-only right-rail panels
+// ---------------------------------------------------------------------------
+
+function DirectorTurnPanel({ state }: { state: GameState }) {
+  const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
+  const drawPhase = state.turn?.phase === "draw";
+  const drawnCard = state.turn?.drawnCard ?? null;
+  const pendingNote = pendingChoiceNote(state);
+
+  return (
+    <Panel
+      title="Actions"
+      className={
+        state.phase === "playing" && active
+          ? "border-[var(--accent)]/60 bg-[var(--accent)]/[0.07] shadow-[0_0_18px_rgba(245,197,66,0.12),inset_0_0_0_1px_rgba(245,197,66,0.15)]"
+          : ""
+      }
+      bodyClassName="space-y-2"
+    >
+      {pendingNote && (
+        <p className="rounded-md bg-purple-500/10 px-2 py-1 text-xs font-medium text-purple-300">
+          {pendingNote}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {active ? (
+          <span
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold"
+            style={{
+              background: PLAYER_COLORS[active.color].hex,
+              color: PLAYER_COLORS[active.color].textHex,
+            }}
+          >
+            {active.name}
+            <span className="text-[10px] font-semibold opacity-85">
+              {drawPhase ? "draws" : "acts"}
+            </span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted">Waiting…</span>
+        )}
+        <AnimatePresence>
+          {drawnCard && <DrawnCardChip key={drawnCard.id} card={drawnCard} />}
+        </AnimatePresence>
+      </div>
+
+      {drawPhase ? (
+        <p className="rounded-md bg-[var(--accent)]/10 px-2 py-2 text-center text-[11px] font-medium text-[var(--accent)]">
+          Draw phase
+        </p>
+      ) : (
+        <div className="pointer-events-none grid grid-cols-3 gap-2 opacity-80">
+          {ACTION_TILES.map((kind) => (
+            <ActionTileButton
+              key={kind}
+              kind={kind}
+              disabled={kind === "gamble" && !!state.turn?.gambleUsed}
+              onClick={() => {}}
+            />
+          ))}
+          <EndTurnButton staticDisplay className="col-span-3" />
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function DirectorTradesPanel({ state }: { state: GameState }) {
+  const trade = state.trade;
+
+  return (
+    <Panel title="Trades" className="shrink-0">
+      {trade ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted">
+            <span className="font-semibold text-white">
+              {state.players.find((p) => p.id === trade.proposerId)?.name ?? "?"}
+            </span>{" "}
+            proposes:
+          </p>
+          <ol className="space-y-1 text-xs">
+            {trade.steps.map((step, i) => (
+              <li key={i} className="rounded bg-black/25 px-2 py-1">
+                {i + 1}. {describeStep(state, step)}
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-wrap gap-1.5 text-[10px]">
+            {trade.participants.map((id) => {
+              const p = state.players.find((pl) => pl.id === id);
+              const approved = trade.approvals.includes(id);
+              return (
+                <span
+                  key={id}
+                  className={`rounded px-1.5 py-0.5 font-semibold ${
+                    approved ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-muted"
+                  }`}
+                >
+                  {p?.name} {approved ? "✓" : "…"}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-muted">No trade pending</p>
+      )}
+    </Panel>
+  );
+}
+
+function DrawnCardChip({ card }: { card: PropertyCard }) {
+  const isStrip = card.pays === "strip";
+  const bg = isStrip ? "var(--accent)" : CASINOS[card.pays as CasinoColor].hex;
+  const fg = isStrip ? "#1a1a1a" : CASINOS[card.pays as CasinoColor].textHex;
+  const deckName = isStrip ? "Strip" : CASINOS[card.pays as CasinoColor].name;
+  return (
+    <motion.span
+      initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
+      animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      className="flex items-center gap-1.5 rounded-md border border-white/25 px-2 py-1 text-[11px] font-bold shadow-md"
+      style={{ background: bg, color: fg, transformStyle: "preserve-3d" }}
+      title={`Drawn card: ${card.lotId} (${deckName} pays)`}
+    >
+      <span className="rounded-sm bg-black/25 px-1 font-mono text-white">{card.lotId}</span>
+      {deckName} pays
+    </motion.span>
+  );
+}
+
+function pendingChoiceNote(state: GameState): string | null {
+  const pending = state.pendingChoice;
+  if (!pending) return null;
+  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "A player";
+  switch (pending.kind) {
+    case "removeDie":
+      return `${name(pending.playerId)} must choose a die to move.`;
+    case "vacateLot":
+      return `${name(pending.playerId)} must vacate a lot marker.`;
+    case "reorgPlacement":
+      return "Players are placing rerolled dice.";
+    default:
+      return "Waiting for a player choice…";
+  }
+}
+
+function describeStep(state: GameState, step: TradeStep): string {
+  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "?";
+  switch (step.type) {
+    case "money":
+      return `${name(step.from)} pays ${name(step.to)} $${step.amount}M`;
+    case "lot":
+      return `${name(step.from)} gives lot ${step.lotId} to ${name(step.to)}`;
+    case "die":
+      return `${name(step.from)}'s die on ${step.lotId} goes to ${name(step.to)}`;
+    case "action":
+      return `${name(step.player)} performs: ${describeAction(step.action)}`;
+  }
+}
+
+function describeAction(a: ActionCommand): string {
+  switch (a.type) {
+    case "build":
+      return `build ${CASINOS[a.color].name} on ${a.lotId}`;
+    case "sprawl":
+      return `sprawl ${a.fromLot} → ${a.toLot}`;
+    case "remodel":
+      return `remodel ${a.lotId} to ${CASINOS[a.newColor].name}`;
+    case "raise":
+      return `raise the casino at ${a.lotId}`;
+    case "reorganize":
+      return `reorganize the casino at ${a.lotId}`;
+    case "gamble":
+      return `gamble $${a.wager}M at ${a.lotId}`;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -213,76 +435,6 @@ function useFullLog(gameId: string | undefined): LogLine[] {
 
 // ---------------------------------------------------------------------------
 
-function TopBanner({ state, enabled }: { state: GameState; enabled: boolean }) {
-  const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
-  return (
-    <header className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2">
-      <h1 className="marquee text-2xl leading-none">Lords of Vegas</h1>
-      <span className="rounded bg-black/40 px-2 py-0.5 font-mono text-sm font-bold tracking-[0.25em] text-[var(--accent)]">
-        {state.roomCode}
-      </span>
-      {enabled && state.phase === "playing" && active && (
-        <div className="ml-auto flex items-center gap-3">
-          <span className="text-sm text-muted">Turn {state.turn?.number}</span>
-          <span
-            className="flex items-center gap-2 rounded-lg px-3 py-1 text-sm font-bold"
-            style={{
-              background: PLAYER_COLORS[active.color].hex,
-              color: PLAYER_COLORS[active.color].textHex,
-            }}
-          >
-            {active.name}
-            <span className="text-xs font-semibold opacity-80">
-              {state.turn?.phase === "draw" ? "drawing" : "taking actions"}
-            </span>
-          </span>
-        </div>
-      )}
-    </header>
-  );
-}
-
-function Standings({ state }: { state: GameState }) {
-  const ordered = [...state.players].sort(
-    (a, b) => SCORE_TRACK[b.trackIndex] - SCORE_TRACK[a.trackIndex] || b.money - a.money,
-  );
-  const activeId = state.turn?.activePlayerId;
-  return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Standings</h2>
-      <div className="space-y-1.5">
-        {ordered.map((p) => (
-          <div
-            key={p.id}
-            className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
-              p.id === activeId && state.phase === "playing" ? "bg-white/10" : ""
-            }`}
-          >
-            <span
-              className="h-3 w-3 shrink-0 rounded-full border border-white/30"
-              style={{ background: PLAYER_COLORS[p.color].hex }}
-            />
-            <span className="truncate text-sm font-semibold">{p.name}</span>
-            <span className="ml-auto flex shrink-0 items-center gap-2.5 font-mono text-xs">
-              <span className="font-bold text-[var(--accent)]">
-                <AnimatedNumber value={SCORE_TRACK[p.trackIndex]} />
-                pts
-              </span>
-              <MoneyValue amount={p.money} />
-              <span className="flex items-center gap-1 text-muted" title="dice / markers remaining">
-                <MiniDie /> {12 - diceOnBoard(state, p.id)}
-                <MiniMarker className="ml-0.5" /> {10 - markersOnBoard(state, p.id)}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 const TOAST_TYPES = new Set(["casino-payout", "parking-payout", "scoring", "game-over"]);
 
 function EventToasts({ events, overlays }: { events: LogLine[]; overlays: Overlays }) {
@@ -291,7 +443,6 @@ function EventToasts({ events, overlays }: { events: LogLine[]; overlays: Overla
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    // Skip history on first load; only toast fresh events.
     if (!initializedRef.current) {
       for (const e of events) seenRef.current.add(e.key);
       initializedRef.current = true;

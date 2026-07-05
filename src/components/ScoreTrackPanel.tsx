@@ -20,6 +20,7 @@ import {
   trackTiers,
 } from "@/data/scoreTrack";
 import type { GameState } from "@/engine/types";
+import { PlayerCarMarker } from "./ui/MiniIcons";
 
 const GRID_COLS = 3;
 const GRID_CELL_WIDTH = `calc((100% - ${GRID_COLS - 1}px) / ${GRID_COLS})`;
@@ -178,12 +179,14 @@ function TrackCell({
               key={p.id}
               layoutId={`score-marker-${p.id}`}
               transition={{ type: "spring", stiffness: 300, damping: 24 }}
-              className={`shrink-0 rounded-full border border-white/40 shadow-[0_0_4px_rgba(0,0,0,0.6)] ${
-                isColumn ? "h-2 w-2" : "h-2.5 w-2.5"
-              }`}
-              style={{ background: PLAYER_COLORS[p.color].hex }}
-              title={`${p.name}: ${value} pts`}
-            />
+              className="inline-flex shrink-0"
+            >
+              <PlayerCarMarker
+                color={PLAYER_COLORS[p.color].hex}
+                size={isColumn ? 12 : 14}
+                title={`${p.name}: ${value} pts`}
+              />
+            </motion.span>
           ))}
         </div>
       )}

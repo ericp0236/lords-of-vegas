@@ -39,14 +39,15 @@ import { useGameFeedback } from "@/lib/useGameFeedback";
 import type { useGame } from "@/lib/useGame";
 import { Board } from "./Board";
 import { HOUSE_DIE, RollingDie } from "./DieFace";
-import { DiscardPiles, TileSupply } from "./DiscardPiles";
+import { DiscardPiles } from "./DiscardPiles";
+import { TilesLeftPanel } from "./TilesLeftPanel";
 import { LogPanel, stateLogLines } from "./LogPanel";
 import { MyStatsPanel } from "./MyStatsPanel";
 import { PlayerChips, PlayerStandingsTable } from "./PlayerChips";
 import { ScoreTrackPanel } from "./ScoreTrackPanel";
 import { TradeCenter } from "./TradeCenter";
 import { Button } from "./ui/Button";
-import { ActionBarButton, ActionTileButton, type ActionTileKind } from "./ui/ActionTileButton";
+import { ActionBarButton, ActionTileButton, EndTurnButton, type ActionTileKind } from "./ui/ActionTileButton";
 import { Modal } from "./ui/Modal";
 import { Panel } from "./ui/Panel";
 import { Sheet } from "./ui/Sheet";
@@ -252,9 +253,7 @@ export function GamePlay({
           <Panel title="Standings" className="shrink-0">
             <PlayerStandingsTable state={state} viewerId={meId} />
           </Panel>
-          <Panel title="Tiles left" className="shrink-0">
-            <TileSupply state={state} className="flex-col" />
-          </Panel>
+          <TilesLeftPanel state={state} className="shrink-0" />
           <Panel
             title="Game log"
             className="flex min-h-0 flex-1 flex-col"
@@ -374,10 +373,7 @@ export function GamePlay({
                 />
               </div>
               <div>
-                <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-                  Tiles left
-                </h3>
-                <TileSupply state={state} />
+                <TilesLeftPanel state={state} />
               </div>
             </div>
           </Sheet>
@@ -566,13 +562,10 @@ function ActionDock({
               Cancel
             </ActionBarButton>
           )}
-          <ActionBarButton
-            variant="default"
+          <EndTurnButton
             onClick={() => dispatch({ type: "endTurn" })}
             className="col-span-3"
-          >
-            End turn
-          </ActionBarButton>
+          />
         </>
       )}
     </div>
@@ -603,14 +596,10 @@ function ActionDock({
             Cancel
           </Button>
         )}
-        <Button
-          variant="subtle"
-          size="sm"
+        <EndTurnButton
           onClick={() => dispatch({ type: "endTurn" })}
-          className="min-h-[36px] border border-white/15"
-        >
-          End turn
-        </Button>
+          className="min-h-[40px] basis-full"
+        />
       </>
     )
   );

@@ -3,7 +3,7 @@ import { SCORE_TRACK } from "@/data/scoreTrack";
 import { diceOnBoard, markersOnBoard } from "@/engine/helpers";
 import type { GameState } from "@/engine/types";
 import { AnimatedNumber } from "./ui/AnimatedNumber";
-import { MiniDie, MiniMarker } from "./ui/MiniIcons";
+import { MiniDie, MiniMarker, PlayerCarMarker } from "./ui/MiniIcons";
 import { MoneyValue } from "./ui/MoneyValue";
 
 export function PlayersPanel({
@@ -30,10 +30,7 @@ export function PlayersPanel({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span
-                className="h-3.5 w-3.5 rounded-full border border-white/30 shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-                style={{ background: meta.hex }}
-              />
+              <PlayerCarMarker color={meta.hex} size={16} />
               <span className="text-sm font-semibold">
                 {p.name}
                 {p.id === viewerId && <span className="text-muted"> (you)</span>}

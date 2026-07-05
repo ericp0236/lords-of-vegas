@@ -16,6 +16,7 @@ import { CASINOS } from "@/data/casinoCards";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 import type { GameState, TileState } from "@/engine/types";
 import { RollingDie } from "./DieFace";
+import { PlayerCarMarker } from "./ui/MiniIcons";
 
 export interface BoardProps {
   state: GameState;
@@ -146,10 +147,15 @@ const LotCellInner = memo(function LotCell({
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
-            className="absolute bottom-0.5 right-0.5 h-3.5 w-5 rounded-[3px] border border-white/50 shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-            style={{ background: PLAYER_COLORS[parkingOwnerColor].hex }}
-            title={parkingOwnerName ? `${parkingOwnerName}'s lot` : undefined}
-          />
+            className="absolute bottom-0 right-0 z-[1]"
+          >
+            <PlayerCarMarker
+              color={PLAYER_COLORS[parkingOwnerColor].hex}
+              size={36}
+              className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)]"
+              title={parkingOwnerName ? `${parkingOwnerName}'s lot` : undefined}
+            />
+          </motion.span>
         )}
       </div>
     );
