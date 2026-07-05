@@ -1,121 +1,181 @@
 "use client";
 
 /**
- * The Las Vegas board: 6 blocks flanking The Strip, cleaner digital redesign.
+ * The Las Vegas board: 6 blocks flanking The Strip on a casino-felt surface.
  * Renders purely from game state; interaction is delegated via `onLotClick`
  * with eligible lots highlighted by the parent.
+ *
+ * Cells are memoized on their own slice of state so a snapshot update only
+ * re-renders the lots that actually changed.
  */
 
+import { memo } from "react";
+import { motion } from "motion/react";
 import { BLOCKS, BOARD_LOTS, lotsInBlock, type BlockId, type LotId } from "@/data/boardLots";
 import { CASINOS } from "@/data/casinoCards";
-import { PLAYER_COLORS } from "@/data/playerColors";
-import type { GameState } from "@/engine/types";
-import { DieFace } from "./DieFace";
+import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
+import type { GameState, TileState } from "@/engine/types";
+import { RollingDie } from "./DieFace";
 
 export interface BoardProps {
   state: GameState;
   /** Lots the current interaction can target (highlighted + clickable) */
   eligibleLots?: Set<LotId>;
   onLotClick?: (lotId: LotId) => void;
-  /** Compact = director side layouts; full = player view */
   className?: string;
 }
 
-function LotCell({
-  state,
-  lotId,
-  eligible,
-  onClick,
-}: {
-  state: GameState;
+// ---------------------------------------------------------------------------
+// Lot cell
+// ---------------------------------------------------------------------------
+
+interface LotCellProps {
   lotId: LotId;
+  tile: TileState;
+  dieOwnerColor: PlayerColor | null;
+  parkingOwnerColor: PlayerColor | null;
+  parkingOwnerName: string | null;
   eligible: boolean;
   onClick?: (lotId: LotId) => void;
-}) {
+}
+
+/** Re-render a cell only when its visible content or interactivity changes.
+ * Snapshots arrive as fresh JSON (new object identities), so we compare the
+ * fields that matter rather than references. */
+function lotCellPropsEqual(a: LotCellProps, b: LotCellProps): boolean {
+  return (
+    a.lotId === b.lotId &&
+    a.eligible === b.eligible &&
+    a.onClick === b.onClick &&
+    a.dieOwnerColor === b.dieOwnerColor &&
+    a.parkingOwnerColor === b.parkingOwnerColor &&
+    a.parkingOwnerName === b.parkingOwnerName &&
+    a.tile.built === b.tile.built &&
+    a.tile.color === b.tile.color &&
+    a.tile.risers === b.tile.risers &&
+    a.tile.die?.owner === b.tile.die?.owner &&
+    a.tile.die?.value === b.tile.die?.value
+  );
+}
+
+const LotCellInner = memo(function LotCell({
+  lotId,
+  tile,
+  dieOwnerColor,
+  parkingOwnerColor,
+  parkingOwnerName,
+  eligible,
+  onClick,
+}: LotCellProps) {
   const lot = BOARD_LOTS[lotId];
-  const tile = state.board[lotId];
-  const player = tile.parkingOwner
-    ? state.players.find((p) => p.id === tile.parkingOwner)
-    : null;
-  const dieOwner = tile.die ? state.players.find((p) => p.id === tile.die!.owner) : null;
+  const clickable = eligible && !!onClick;
 
-  const base =
-    "relative aspect-square rounded-md flex flex-col items-center justify-center select-none transition-shadow";
-  const clickable = eligible && onClick;
-
-  let style: React.CSSProperties = {};
   let content: React.ReactNode;
+  let style: React.CSSProperties = {};
 
   if (tile.built && tile.color) {
     const casino = CASINOS[tile.color];
+    const height = 1 + tile.risers;
+    // Raised casinos read as stacked tiles via layered edge shadows.
+    const stack =
+      tile.risers > 0
+        ? Array.from({ length: Math.min(tile.risers, 4) })
+            .map((_, i) => `${(i + 1) * 1.5}px ${(i + 1) * 1.5}px 0 rgba(0,0,0,${0.32 - i * 0.05})`)
+            .join(", ") + ","
+        : "";
     style = {
-      background: `linear-gradient(160deg, ${casino.hex} 0%, ${casino.darkHex} 100%)`,
-      boxShadow: eligible ? "0 0 0 2px var(--accent)" : `inset 0 0 0 1px ${casino.darkHex}`,
+      background: `linear-gradient(155deg, ${casino.hex} 0%, ${casino.darkHex} 115%)`,
+      boxShadow: `${stack}inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 1px ${casino.darkHex}`,
     };
     content = (
-      <>
+      <motion.div
+        key={`built-${tile.color}`}
+        initial={{ scale: 0.55, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 320, damping: 17 }}
+        className="relative flex h-full w-full flex-col items-center justify-center"
+      >
         <span
-          className="absolute top-0.5 left-1 text-[9px] font-semibold opacity-80"
+          className="absolute top-0.5 left-1 text-[8px] font-bold tracking-wide opacity-75"
           style={{ color: casino.textHex }}
         >
           {lotId}
         </span>
         {tile.risers > 0 && (
           <span
-            className="absolute top-0.5 right-1 rounded-sm px-1 text-[9px] font-bold"
-            style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}
-            title={`Height ${1 + tile.risers}`}
+            className="absolute top-0.5 right-0.5 rounded-sm bg-black/50 px-1 text-[9px] font-bold text-white shadow-sm"
+            title={`Height ${height}`}
           >
-            ×{1 + tile.risers}
+            ×{height}
           </span>
         )}
-        {tile.die && dieOwner ? (
-          <DieFace value={tile.die.value} color={dieOwner.color} size={30} />
+        {tile.die && dieOwnerColor ? (
+          <motion.div
+            initial={{ y: -14, scale: 1.3, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 420, damping: 16 }}
+          >
+            <RollingDie value={tile.die.value} color={dieOwnerColor} size={30} />
+          </motion.div>
         ) : (
-          <span className="text-[9px] font-medium opacity-70" style={{ color: casino.textHex }}>
+          <span
+            className="rounded-sm px-1 text-[8px] font-semibold uppercase tracking-wider opacity-70"
+            style={{ color: casino.textHex, background: "rgba(0,0,0,0.22)" }}
+          >
             no die
           </span>
         )}
-      </>
+      </motion.div>
     );
   } else {
     style = {
-      background: "var(--asphalt)",
-      boxShadow: eligible
-        ? "0 0 0 2px var(--accent)"
-        : "inset 0 0 0 1px rgba(255,255,255,0.07)",
+      background:
+        "linear-gradient(160deg, #262c3b 0%, #1f2431 100%)",
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 -6px 12px rgba(0,0,0,0.25)",
     };
     content = (
-      <>
-        <span className="text-[10px] font-bold text-white/80">{lotId}</span>
-        <span className="text-[9px] text-white/50">${lot.price}M</span>
-        <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-[9px] font-bold text-white/70">
+      <div className="relative flex h-full w-full flex-col items-center justify-center">
+        <span className="text-[10px] font-bold leading-tight text-white/85">{lotId}</span>
+        <span className="text-[9px] leading-tight text-white/45">${lot.price}M</span>
+        <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-[9px] font-bold text-white/65">
           {lot.printedDie}
         </span>
-        {player && (
-          <span
-            className="absolute bottom-0.5 right-0.5 h-3.5 w-5 rounded-[3px] border border-white/40"
-            style={{ background: PLAYER_COLORS[player.color].hex }}
-            title={`${player.name}'s lot`}
+        {parkingOwnerColor && (
+          <motion.span
+            key={parkingOwnerColor}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 15 }}
+            className="absolute bottom-0.5 right-0.5 h-3.5 w-5 rounded-[3px] border border-white/50 shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
+            style={{ background: PLAYER_COLORS[parkingOwnerColor].hex }}
+            title={parkingOwnerName ? `${parkingOwnerName}'s lot` : undefined}
           />
         )}
-      </>
+      </div>
     );
   }
 
   return (
-    <button
+    <motion.button
       type="button"
       disabled={!clickable}
       onClick={clickable ? () => onClick!(lotId) : undefined}
-      className={`${base} ${clickable ? "cursor-pointer hover:brightness-125" : "cursor-default"}`}
+      whileHover={clickable ? { scale: 1.06, zIndex: 20 } : undefined}
+      whileTap={clickable ? { scale: 0.97 } : undefined}
+      className={`focus-ring relative h-full w-full select-none rounded-[3px] ${
+        clickable ? "eligible-pulse z-10 cursor-pointer" : "cursor-default"
+      }`}
       style={style}
-      aria-label={`Lot ${lotId}`}
+      aria-label={`Lot ${lotId}${eligible ? " (selectable)" : ""}`}
     >
       {content}
-    </button>
+    </motion.button>
   );
-}
+}, lotCellPropsEqual);
+
+// ---------------------------------------------------------------------------
+// Blocks & streets
+// ---------------------------------------------------------------------------
 
 function Block({
   state,
@@ -131,68 +191,104 @@ function Block({
   const geo = BLOCKS[block];
   return (
     <div
-      className="grid gap-1 rounded-lg p-1.5"
+      className="grid h-full min-h-0 gap-[3px]"
       style={{
         gridTemplateColumns: `repeat(${geo.cols}, minmax(0, 1fr))`,
-        background: "rgba(255,255,255,0.03)",
+        gridTemplateRows: `repeat(${geo.rows}, minmax(0, 1fr))`,
       }}
     >
-      {lotsInBlock(block).map((lotId) => (
-        <LotCell
-          key={lotId}
-          state={state}
-          lotId={lotId}
-          eligible={eligibleLots?.has(lotId) ?? false}
-          onClick={onLotClick}
-        />
-      ))}
+      {lotsInBlock(block).map((lotId) => {
+        const tile = state.board[lotId];
+        const dieOwner = tile.die
+          ? state.players.find((p) => p.id === tile.die!.owner) ?? null
+          : null;
+        const parkingOwner =
+          !tile.built && tile.parkingOwner
+            ? state.players.find((p) => p.id === tile.parkingOwner) ?? null
+            : null;
+        return (
+          <LotCellInner
+            key={lotId}
+            lotId={lotId}
+            tile={tile}
+            dieOwnerColor={dieOwner?.color ?? null}
+            parkingOwnerColor={parkingOwner?.color ?? null}
+            parkingOwnerName={parkingOwner?.name ?? null}
+            eligible={eligibleLots?.has(lotId) ?? false}
+            onClick={onLotClick}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function Street({ name }: { name: string }) {
+function Street({ name, connect }: { name: string; connect?: "strip-left" | "strip-right" }) {
   return (
-    <div className="flex items-center justify-center py-0.5">
-      <span className="text-[9px] uppercase tracking-[0.25em] text-white/30">{name}</span>
+    <div
+      className={`board-street flex min-h-0 items-center justify-center ${
+        connect === "strip-right"
+          ? "board-street--to-strip-right"
+          : connect === "strip-left"
+            ? "board-street--to-strip-left"
+            : ""
+      }`}
+    >
+      <div className="board-street__centerline" aria-hidden="true" />
+      <span className="board-street__label neon-flicker">{name}</span>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Board
+// ---------------------------------------------------------------------------
 
 export function Board({ state, eligibleLots, onLotClick, className = "" }: BoardProps) {
+  // All sizes are expressed in fr units of one lot cell so every cell on the
+  // board renders at exactly the same size: 3 cells per side column, 8 cell
+  // rows per column, streets 0.35 and the Strip 0.65 of a cell. The fixed
+  // aspect ratio keeps the cells square regardless of container size.
   return (
-    <div className={`rounded-xl bg-[var(--strip)] p-3 ${className}`}>
-      <div className="grid grid-cols-[1fr_44px_1fr] gap-x-1">
-        {/* Left column: A, C, E */}
-        <div className="flex flex-col justify-between">
+    <div className={`flex min-h-0 items-center justify-center ${className}`}>
+      <div
+        className="felt gold-rail grid h-full max-h-full w-auto max-w-full grid-cols-[3fr_0.65fr_3fr] overflow-visible rounded-xl p-2"
+        style={{ aspectRatio: "6.65 / 8.7" }}
+      >
+        {/* Left column: A (2 rows), C (4 rows), E (2 rows) */}
+        <div className="z-10 grid min-h-0 grid-rows-[2fr_0.35fr_4fr_0.35fr_2fr]">
           <Block state={state} block="A" eligibleLots={eligibleLots} onLotClick={onLotClick} />
-          <Street name="Sahara Ave" />
+          <Street name="Sahara Ave" connect="strip-right" />
           <Block state={state} block="C" eligibleLots={eligibleLots} onLotClick={onLotClick} />
-          <Street name="Flamingo Rd" />
+          <Street name="Flamingo Rd" connect="strip-right" />
           <Block state={state} block="E" eligibleLots={eligibleLots} onLotClick={onLotClick} />
         </div>
         {/* The Strip */}
-        <div className="relative mx-0.5 flex items-center justify-center rounded-md bg-gradient-to-b from-[#171d2e] via-[#1b2338] to-[#171d2e]">
+        <div className="relative z-0 flex min-h-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-b from-[#12172a] via-[#1a2138] to-[#12172a] shadow-[inset_0_0_14px_rgba(0,0,0,0.55)]">
           <div
-            className="absolute inset-y-2 left-1/2 w-px -translate-x-1/2"
+            className="strip-neon absolute inset-y-2 left-1/2 w-px -translate-x-1/2"
             style={{
               background:
                 "repeating-linear-gradient(to bottom, var(--accent) 0 10px, transparent 10px 22px)",
-              opacity: 0.7,
+              opacity: 0.85,
             }}
           />
           <span
-            className="rotate-180 text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--accent)]"
-            style={{ writingMode: "vertical-rl" }}
+            className="neon-flicker rotate-180 text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--accent)]"
+            style={{
+              writingMode: "vertical-rl",
+              textShadow: "0 0 8px rgba(245,197,66,0.8), 0 0 20px rgba(245,197,66,0.4)",
+            }}
           >
             The Strip
           </span>
         </div>
-        {/* Right column: B, D, F */}
-        <div className="flex flex-col justify-between">
+        {/* Right column: B (2 rows), D (3 rows), F (3 rows) */}
+        <div className="z-10 grid min-h-0 grid-rows-[2fr_0.35fr_3fr_0.35fr_3fr]">
           <Block state={state} block="B" eligibleLots={eligibleLots} onLotClick={onLotClick} />
-          <Street name="Sahara Ave" />
+          <Street name="Sahara Ave" connect="strip-left" />
           <Block state={state} block="D" eligibleLots={eligibleLots} onLotClick={onLotClick} />
-          <Street name="Harmon Ave" />
+          <Street name="Harmon Ave" connect="strip-left" />
           <Block state={state} block="F" eligibleLots={eligibleLots} onLotClick={onLotClick} />
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { PLAYER_COLOR_KEYS, PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
+import { playSound } from "@/lib/sound/SoundManager";
 
 export function ColorPicker({
   value,
@@ -21,11 +22,17 @@ export function ColorPicker({
             key={c}
             type="button"
             disabled={isTaken}
-            onClick={() => onChange(c)}
+            onClick={() => {
+              playSound("chip");
+              onChange(c);
+            }}
             title={isTaken ? `${meta.name} (taken)` : meta.name}
-            className={`h-8 w-8 rounded-full border-2 transition ${
-              value === c ? "scale-110 border-[var(--accent)]" : "border-white/20"
-            } ${isTaken ? "cursor-not-allowed opacity-25" : "hover:scale-105"}`}
+            aria-label={isTaken ? `${meta.name} (taken)` : meta.name}
+            className={`focus-ring h-9 w-9 rounded-full border-2 transition ${
+              value === c
+                ? "scale-110 border-[var(--accent)] shadow-[0_0_10px_rgba(245,197,66,0.5)]"
+                : "border-white/20"
+            } ${isTaken ? "cursor-not-allowed opacity-25" : "hover:scale-105 active:scale-95"}`}
             style={{ background: meta.hex }}
           />
         );

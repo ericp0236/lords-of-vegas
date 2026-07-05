@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ALL_LOT_IDS, BOARD_LOTS, STRIP_ADJACENT_LOTS } from "@/data/boardLots";
 import { GAME_OVER_CARD, LOT_CARDS, LOT_TO_DECK } from "@/data/casinoCards";
-import { advanceTrack, SCORE_TRACK } from "@/data/scoreTrack";
+import {
+  advanceTrack,
+  buildTrackGrid,
+  MAX_TRACK_INDEX,
+  SCORE_TRACK,
+  stepFrom,
+  trackTiers,
+} from "@/data/scoreTrack";
 
 describe("board data", () => {
   it("has exactly 48 lots", () => {
@@ -90,5 +97,37 @@ describe("score track", () => {
     expect(SCORE_TRACK[idx]).toBe(10);
     // but a third 1-point score can't clear the 10→12 break
     expect(SCORE_TRACK[advanceTrack(idx, 1)]).toBe(10);
+  });
+
+  it("stepFrom describes gaps and breaks for the track UI", () => {
+    const at9 = SCORE_TRACK.indexOf(9);
+    expect(stepFrom(at9)).toEqual({
+      fromIndex: at9,
+      toIndex: at9 + 1,
+      fromValue: 9,
+      toValue: 10,
+      gap: 1,
+      isBreak: false,
+    });
+
+    const at10 = SCORE_TRACK.indexOf(10);
+    expect(stepFrom(at10)).toMatchObject({ fromValue: 10, toValue: 12, gap: 2, isBreak: true });
+
+    expect(stepFrom(MAX_TRACK_INDEX)).toBeNull();
+  });
+
+  it("trackTiers groups by entry gap so break ledges stay in the prior tier", () => {
+    const tiers = trackTiers();
+    expect(tiers[0]).toMatchObject({ gap: 1, fromValue: 0, toValue: 10 });
+    expect(tiers[1]).toMatchObject({ gap: 2, fromValue: 12, toValue: 20 });
+    expect(tiers[tiers.length - 1]).toMatchObject({ gap: 8, fromValue: 81, toValue: 81 });
+  });
+
+  it("buildTrackGrid starts a new row at each tier", () => {
+    const { tiers, jackpotIndex } = buildTrackGrid(3);
+    expect(tiers[0].rows[0]).toEqual([0, 1, 2]);
+    expect(tiers[0].rows[tiers[0].rows.length - 1]).toEqual([9, 10]);
+    expect(tiers[1].rows[0]).toEqual([11, 12, 13]);
+    expect(jackpotIndex).toBe(MAX_TRACK_INDEX);
   });
 });

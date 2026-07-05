@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { motion } from "motion/react";
 import type { LogEvent } from "@/engine/types";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -36,11 +37,17 @@ export function LogPanel({
 
   return (
     <div className={`scrollbar-thin overflow-y-auto text-xs leading-relaxed ${className}`}>
-      {lines.map((line) => (
-        <div key={line.key} className="flex gap-2 border-b border-white/5 py-1">
+      {lines.map((line, index) => (
+        <motion.div
+          key={`${line.key}-${index}`}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22 }}
+          className="flex gap-2 border-b border-white/5 py-1"
+        >
           <span className="shrink-0 font-mono text-[10px] text-white/30">T{line.turn}</span>
           <span className={TYPE_COLORS[line.type] ?? "text-white/80"}>{line.message}</span>
-        </div>
+        </motion.div>
       ))}
       <div ref={bottomRef} />
     </div>

@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { PLAYER_COLORS } from "@/data/playerColors";
 import { SCORE_TRACK } from "@/data/scoreTrack";
 import { diceOnBoard, markersOnBoard } from "@/engine/helpers";
@@ -14,9 +15,16 @@ import type { GameState } from "@/engine/types";
 import { fetchEvents, type GameEventRow } from "@/lib/gameApi";
 import { supabase } from "@/lib/supabaseClient";
 import { useGame } from "@/lib/useGame";
+import { useGameFeedback } from "@/lib/useGameFeedback";
 import { Board } from "./Board";
+import { Confetti } from "./fx/Confetti";
 import { DiscardPiles, TileSupply } from "./DiscardPiles";
 import { LogPanel, type LogLine } from "./LogPanel";
+import { ScoreTrackPanel } from "./ScoreTrackPanel";
+import { AnimatedNumber } from "./ui/AnimatedNumber";
+import { MiniDie, MiniMarker } from "./ui/MiniIcons";
+import { MoneyValue } from "./ui/MoneyValue";
+import { SoundToggle } from "./ui/SoundToggle";
 
 interface Overlays {
   turnBanner: boolean;
@@ -33,6 +41,9 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
   });
   const [showControls, setShowControls] = useState(false);
   const events = useFullLog(game.row?.id);
+
+  // Table sounds for the recording (mute with the hover toggle if unwanted).
+  useGameFeedback(game.state);
 
   if (game.loading) {
     return (
@@ -75,14 +86,25 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
       <TopBanner state={state} enabled={overlays.turnBanner} />
 
       <div className="flex min-h-0 flex-1 gap-3">
-        {/* Board */}
-        <div className="flex min-w-0 flex-[1.35] flex-col gap-2">
-          <Board state={state} className="min-h-0 flex-1" />
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5">
-            <DiscardPiles state={state} />
-            <TileSupply state={state} />
-          </div>
+        {/* Left rail: deck / discards + tile supply */}
+        <div className="flex w-44 shrink-0 flex-col gap-2">
+          <section className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
+            <h2 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+              Deck &amp; discards
+            </h2>
+            <DiscardPiles state={state} compact />
+          </section>
+          <section className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
+            <h2 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+              Tiles left
+            </h2>
+            <TileSupply state={state} className="flex-col" />
+          </section>
+          <ScoreTrackPanel state={state} />
         </div>
+
+        {/* Board */}
+        <Board state={state} className="min-h-0 min-w-0 flex-[1.35]" />
 
         {/* Right rail: standings + full log */}
         <div className="flex w-[340px] shrink-0 flex-col gap-2">
@@ -121,6 +143,7 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
             {label}
           </label>
         ))}
+        <SoundToggle className="h-6 w-6" />
       </div>
 
       {state.phase === "ended" && <WinnerOverlay state={state} />}
@@ -133,19 +156,28 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
 function useFullLog(gameId: string | undefined): LogLine[] {
   const [rows, setRows] = useState<GameEventRow[]>([]);
   const lastIdRef = useRef(0);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
 
     async function load() {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
       try {
         const fresh = await fetchEvents(gameId!, lastIdRef.current);
         if (cancelled || fresh.length === 0) return;
         lastIdRef.current = fresh[fresh.length - 1].id;
-        setRows((prev) => [...prev, ...fresh]);
+        setRows((prev) => {
+          const seen = new Set(prev.map((r) => r.id));
+          const novel = fresh.filter((r) => !seen.has(r.id));
+          return novel.length === 0 ? prev : [...prev, ...novel];
+        });
       } catch {
         // retry on next poll
+      } finally {
+        loadingRef.current = false;
       }
     }
 
@@ -233,11 +265,13 @@ function Standings({ state }: { state: GameState }) {
             <span className="truncate text-sm font-semibold">{p.name}</span>
             <span className="ml-auto flex shrink-0 items-center gap-2.5 font-mono text-xs">
               <span className="font-bold text-[var(--accent)]">
-                {SCORE_TRACK[p.trackIndex]}pts
+                <AnimatedNumber value={SCORE_TRACK[p.trackIndex]} />
+                pts
               </span>
-              <span className="text-emerald-400">${p.money}M</span>
-              <span className="text-muted" title="dice / markers remaining">
-                🎲{12 - diceOnBoard(state, p.id)} 🚗{10 - markersOnBoard(state, p.id)}
+              <MoneyValue amount={p.money} />
+              <span className="flex items-center gap-1 text-muted" title="dice / markers remaining">
+                <MiniDie /> {12 - diceOnBoard(state, p.id)}
+                <MiniMarker className="ml-0.5" /> {10 - markersOnBoard(state, p.id)}
               </span>
             </span>
           </div>
@@ -280,24 +314,28 @@ function EventToasts({ events, overlays }: { events: LogLine[]; overlays: Overla
         ? true
         : overlays.payouts,
   );
-  if (filtered.length === 0) return null;
-
   return (
     <div className="pointer-events-none absolute bottom-16 left-1/2 z-30 flex w-full max-w-2xl -translate-x-1/2 flex-col gap-2 px-4">
-      {filtered.map((e) => (
-        <div
-          key={e.key}
-          className={`rounded-xl border px-4 py-2.5 text-center text-sm font-semibold shadow-2xl backdrop-blur ${
-            e.type === "scoring"
-              ? "border-[var(--accent)]/50 bg-[#2a2410]/95 text-[var(--accent)]"
-              : e.type === "game-over"
-                ? "border-[var(--accent-2)]/60 bg-[#2a1015]/95 text-[var(--accent-2)]"
-                : "border-emerald-500/40 bg-[#0d251c]/95 text-emerald-300"
-          }`}
-        >
-          {e.message}
-        </div>
-      ))}
+      <AnimatePresence>
+        {filtered.map((e) => (
+          <motion.div
+            key={e.key}
+            initial={{ opacity: 0, y: 24, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 320, damping: 26 }}
+            className={`rounded-xl border px-4 py-2.5 text-center text-sm font-semibold shadow-2xl backdrop-blur ${
+              e.type === "scoring"
+                ? "border-[var(--accent)]/50 bg-[#2a2410]/95 text-[var(--accent)]"
+                : e.type === "game-over"
+                  ? "border-[var(--accent-2)]/60 bg-[#2a1015]/95 text-[var(--accent-2)]"
+                  : "border-emerald-500/40 bg-[#0d251c]/95 text-emerald-300"
+            }`}
+          >
+            {e.message}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -306,14 +344,38 @@ function WinnerOverlay({ state }: { state: GameState }) {
   const winner = state.players.find((p) => p.id === state.winnerId);
   if (!winner) return null;
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm">
-      <h2 className="marquee text-6xl">Game Over</h2>
-      <p className="text-2xl">
-        <span className="font-bold" style={{ color: PLAYER_COLORS[winner.color].hex }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm"
+    >
+      <Confetti pieces={90} />
+      <motion.h2
+        initial={{ scale: 0.6, opacity: 0, y: -30 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.15 }}
+        className="marquee neon-flicker text-6xl"
+      >
+        Game Over
+      </motion.h2>
+      <motion.p
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45, type: "spring", stiffness: 220, damping: 20 }}
+        className="text-2xl"
+      >
+        <span
+          className="font-bold"
+          style={{
+            color: PLAYER_COLORS[winner.color].hex,
+            textShadow: `0 0 18px ${PLAYER_COLORS[winner.color].hex}99`,
+          }}
+        >
           {winner.name}
         </span>{" "}
         wins with {SCORE_TRACK[winner.trackIndex]} points!
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 }

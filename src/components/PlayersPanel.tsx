@@ -2,6 +2,9 @@ import { PLAYER_COLORS } from "@/data/playerColors";
 import { SCORE_TRACK } from "@/data/scoreTrack";
 import { diceOnBoard, markersOnBoard } from "@/engine/helpers";
 import type { GameState } from "@/engine/types";
+import { AnimatedNumber } from "./ui/AnimatedNumber";
+import { MiniDie, MiniMarker } from "./ui/MiniIcons";
+import { MoneyValue } from "./ui/MoneyValue";
 
 export function PlayersPanel({
   state,
@@ -20,15 +23,15 @@ export function PlayersPanel({
         return (
           <div
             key={p.id}
-            className={`rounded-lg border p-2.5 ${
+            className={`rounded-lg border p-2.5 transition-colors ${
               isActive
-                ? "border-[var(--accent)] bg-[var(--surface-2)]"
+                ? "border-[var(--accent)] bg-[var(--surface-2)] shadow-[0_0_10px_rgba(245,197,66,0.15)]"
                 : "border-[var(--border)] bg-[var(--surface)]"
             }`}
           >
             <div className="flex items-center gap-2">
               <span
-                className="h-3.5 w-3.5 rounded-full border border-white/30"
+                className="h-3.5 w-3.5 rounded-full border border-white/30 shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
                 style={{ background: meta.hex }}
               />
               <span className="text-sm font-semibold">
@@ -47,12 +50,20 @@ export function PlayersPanel({
               )}
             </div>
             <div className="mt-1.5 flex items-center gap-3 text-xs text-muted">
-              <span className="font-mono text-sm font-bold text-emerald-400">${p.money}M</span>
+              <MoneyValue amount={p.money} className="text-sm" />
               <span>
-                <span className="font-bold text-[var(--accent)]">{SCORE_TRACK[p.trackIndex]}</span> pts
+                <AnimatedNumber
+                  value={SCORE_TRACK[p.trackIndex]}
+                  className="font-bold text-[var(--accent)]"
+                />{" "}
+                pts
               </span>
-              <span title="Dice remaining">🎲 {12 - diceOnBoard(state, p.id)}</span>
-              <span title="Lot markers remaining">🚗 {10 - markersOnBoard(state, p.id)}</span>
+              <span className="flex items-center gap-1" title="Dice remaining">
+                <MiniDie /> {12 - diceOnBoard(state, p.id)}
+              </span>
+              <span className="flex items-center gap-1" title="Lot markers remaining">
+                <MiniMarker /> {10 - markersOnBoard(state, p.id)}
+              </span>
             </div>
           </div>
         );

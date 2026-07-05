@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { LotId } from "@/data/boardLots";
 import { BOARD_LOTS } from "@/data/boardLots";
 import { CASINOS, CASINO_COLOR_KEYS, type CasinoColor } from "@/data/casinoCards";
@@ -19,6 +20,8 @@ import {
   sprawlTargets,
 } from "@/lib/candidates";
 import type { useGame } from "@/lib/useGame";
+import { Button } from "./ui/Button";
+import { Panel } from "./ui/Panel";
 
 export function TradeCenter({
   state,
@@ -33,33 +36,37 @@ export function TradeCenter({
   const trade = state.trade;
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Trades</h2>
+    <Panel title="Trades">
       {trade ? (
         <PendingTrade state={state} meId={meId} send={send} />
       ) : (
         <>
-          <button
+          <Button
+            variant="sky"
+            size="sm"
+            sound="open"
             onClick={() => setBuilderOpen(true)}
             disabled={state.phase !== "playing" || !!state.pendingChoice}
-            className="w-full rounded-lg bg-sky-500/20 py-2 text-sm font-bold text-sky-300 hover:bg-sky-500/30 disabled:opacity-40"
+            className="w-full"
           >
             Propose a trade
-          </button>
-          {builderOpen && (
-            <TradeBuilder
-              state={state}
-              meId={meId}
-              onClose={() => setBuilderOpen(false)}
-              onPropose={async (steps) => {
-                setBuilderOpen(false);
-                await send(meId, { type: "proposeTrade", steps });
-              }}
-            />
-          )}
+          </Button>
+          <AnimatePresence>
+            {builderOpen && (
+              <TradeBuilder
+                state={state}
+                meId={meId}
+                onClose={() => setBuilderOpen(false)}
+                onPropose={async (steps) => {
+                  setBuilderOpen(false);
+                  await send(meId, { type: "proposeTrade", steps });
+                }}
+              />
+            )}
+          </AnimatePresence>
         </>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -142,43 +149,58 @@ function PendingTrade({
       <div className="flex gap-2">
         {iAmParticipant && !iApproved && (
           <>
-            <button
+            <Button
+              variant="success"
+              size="sm"
+              sound="success"
               onClick={() => send(meId, { type: "approveTrade" })}
-              className="flex-1 rounded-md bg-emerald-500 py-1.5 text-xs font-bold text-black hover:brightness-110"
+              className="flex-1"
             >
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              sound="close"
               onClick={() => send(meId, { type: "rejectTrade" })}
-              className="flex-1 rounded-md bg-[var(--accent-2)] py-1.5 text-xs font-bold text-black hover:brightness-110"
+              className="flex-1"
             >
               Reject
-            </button>
+            </Button>
           </>
         )}
         {iAmParticipant && iApproved && !isProposer && (
-          <button
+          <Button
+            variant="danger"
+            size="sm"
+            sound="close"
             onClick={() => send(meId, { type: "rejectTrade" })}
-            className="flex-1 rounded-md bg-[var(--accent-2)]/60 py-1.5 text-xs font-bold text-black hover:brightness-110"
+            className="flex-1 opacity-80"
           >
             Withdraw (reject)
-          </button>
+          </Button>
         )}
         {isProposer && (
           <>
-            <button
+            <Button
+              variant="gold"
+              size="sm"
+              sound="trade"
               onClick={() => send(meId, { type: "executeTrade" })}
               disabled={trade.status !== "ready"}
-              className="flex-1 rounded-md bg-[var(--accent)] py-1.5 text-xs font-bold text-black hover:brightness-110 disabled:opacity-40"
+              className="flex-1"
             >
               {trade.status === "ready" ? "Execute trade" : "Awaiting approvals…"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="subtle"
+              size="sm"
+              sound="close"
               onClick={() => send(meId, { type: "cancelTrade" })}
-              className="flex-1 rounded-md bg-white/10 py-1.5 text-xs font-bold hover:bg-white/20"
+              className="flex-1"
             >
               Cancel
-            </button>
+            </Button>
           </>
         )}
         {!iAmParticipant && <p className="text-xs text-muted">You aren&apos;t part of this trade.</p>}
@@ -302,10 +324,24 @@ function TradeBuilder({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[3px]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
         className="scrollbar-thin max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Propose a trade"
       >
         <h3 className="text-sm font-bold">Propose a trade</h3>
         <p className="mt-1 text-xs text-muted">
@@ -468,30 +504,27 @@ function TradeBuilder({
             </div>
           )}
 
-          <button
-            onClick={addStep}
-            className="mt-3 w-full rounded-md bg-white/10 py-1.5 text-xs font-bold hover:bg-white/20"
-          >
+          <Button variant="subtle" size="sm" sound="chip" onClick={addStep} className="mt-3 w-full">
             + Add step
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 flex gap-2">
-          <button
+          <Button
+            variant="gold"
+            size="md"
+            sound="trade"
             onClick={() => onPropose(steps)}
             disabled={steps.length === 0}
-            className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm font-bold text-black hover:brightness-110 disabled:opacity-40"
+            className="flex-1"
           >
             Propose ({steps.length} step{steps.length === 1 ? "" : "s"})
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-muted hover:text-white"
-          >
+          </Button>
+          <Button variant="ghost" size="md" sound="close" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
