@@ -13,7 +13,7 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BOARD_LOTS, type LotId } from "@/data/boardLots";
 import {
@@ -22,22 +22,27 @@ import {
   type CasinoColor,
   type PropertyCard,
 } from "@/data/casinoCards";
-import { PLAYER_COLORS } from "@/data/playerColors";
+import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 import { casinoGroup, casinoPoints } from "@/engine/casinos";
 import { diceExhausted, parkingLots } from "@/engine/helpers";
 import type { ActionCommand, Command, GameState, LogEvent } from "@/engine/types";
+import { actionHintTitle } from "@/lib/actionHints";
 import {
-  bossCasinoLots,
   buildTargets,
   gambleTargets,
+  isActionAvailable,
+  raiseTargets,
+  remodelTargets,
   reorganizeTargets,
+  sprawlFromTargets,
   sprawlTargets,
   vacateDieCandidates,
+  type ActionKind,
 } from "@/lib/candidates";
 import { playSound } from "@/lib/sound/SoundManager";
 import { useGameFeedback } from "@/lib/useGameFeedback";
 import type { useGame } from "@/lib/useGame";
-import { Board } from "./Board";
+import { Board, type BoardOverlayDie } from "./Board";
 import { HOUSE_DIE, RollingDie } from "./DieFace";
 import { DiscardPiles } from "./DiscardPiles";
 import { TilesLeftPanel } from "./TilesLeftPanel";
@@ -69,6 +74,12 @@ type Mode =
 
 type SheetKind = "log" | "trades" | "score" | "supply" | null;
 
+interface ReorgDraft {
+  slots: LotId[];
+  remaining: number[];
+  placements: Record<LotId, number>;
+}
+
 export function GamePlay({
   state,
   meId,
@@ -83,6 +94,10 @@ export function GamePlay({
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [wager, setWager] = useState(1);
   const [sheet, setSheet] = useState<SheetKind>(null);
+  const [reorgDraft, setReorgDraft] = useState<ReorgDraft | null>(null);
+  const [selectedReorgIdx, setSelectedReorgIdx] = useState<number | null>(null);
+  const [selectedReorgLot, setSelectedReorgLot] = useState<LotId | null>(null);
+  const [reorgSessionKey, setReorgSessionKey] = useState<string | null>(null);
 
   useGameFeedback(state, meId);
 
@@ -103,32 +118,100 @@ export function GamePlay({
     pending?.kind === "reorgPlacement" && pending.waiting[meId] !== undefined;
   const canDraw = isMyTurn && state.turn?.phase === "draw" && !pending;
 
+  const pendingReorgKey = useMemo(() => {
+    if (!myPendingReorg || pending?.kind !== "reorgPlacement") return null;
+    const slots = pending.slots[meId];
+    const values = pending.waiting[meId];
+    if (!slots || !values) return null;
+    return `${slots.join(",")}:${values.join(",")}`;
+  }, [myPendingReorg, pending, meId]);
+
+  // Init draft once per reorg pending choice — do not reset on unrelated realtime ticks.
+  useLayoutEffect(() => {
+    if (pendingReorgKey === reorgSessionKey) return;
+    setReorgSessionKey(pendingReorgKey);
+    setSelectedReorgIdx(null);
+    setSelectedReorgLot(null);
+    if (pendingReorgKey && pending?.kind === "reorgPlacement") {
+      setReorgDraft({
+        slots: pending.slots[meId],
+        remaining: [...pending.waiting[meId]],
+        placements: {},
+      });
+    } else {
+      setReorgDraft(null);
+    }
+  }, [pendingReorgKey, reorgSessionKey, pending, meId]);
+
+  const reorgComplete =
+    !!reorgDraft &&
+    reorgDraft.remaining.length === 0 &&
+    reorgDraft.slots.every((lot) => reorgDraft.placements[lot] !== undefined);
+
+  const reorgOverlayDice = useMemo((): Partial<Record<LotId, BoardOverlayDie>> => {
+    if (!reorgDraft) return {};
+    const overlays: Partial<Record<LotId, BoardOverlayDie>> = {};
+    for (const [lot, value] of Object.entries(reorgDraft.placements)) {
+      overlays[lot as LotId] = { value, color: me.color };
+    }
+    return overlays;
+  }, [reorgDraft, me.color]);
+
   // ------------------------------------------------------- eligible lots
-  const eligibleLots = useMemo(() => {
+  const { eligibleLots, clickableLots } = useMemo(() => {
+    if (myPendingReorg && reorgDraft) {
+      const slots = reorgDraft.slots;
+      const unplaced = slots.filter((lot) => reorgDraft.placements[lot] === undefined);
+      return {
+        eligibleLots: unplaced.length > 0 ? new Set(unplaced) : new Set<LotId>(),
+        clickableLots: new Set(slots),
+      };
+    }
     if (myPendingRemoveDie && pending?.kind === "removeDie") {
-      return new Set(vacateDieCandidates(state, meId, pending.targetLot));
+      const lots = new Set(vacateDieCandidates(state, meId, pending.targetLot));
+      return { eligibleLots: lots, clickableLots: lots };
     }
-    if (myPendingVacateLot) return new Set(parkingLots(state, meId));
-    if (!inActions || pending) return new Set<LotId>();
-    switch (mode.kind) {
-      case "build-lot":
-        return new Set(buildTargets(state, meId));
-      case "sprawl-from":
-      case "remodel-casino":
-      case "raise-casino":
-        return new Set(bossCasinoLots(state, meId));
-      case "sprawl-to":
-        return new Set(sprawlTargets(state, mode.fromLot));
-      case "reorganize-casino":
-        return new Set(reorganizeTargets(state, meId));
-      case "gamble-casino":
-        return new Set(gambleTargets(state, meId));
-      case "vacate-die":
-        return new Set(vacateDieCandidates(state, meId));
-      default:
-        return new Set<LotId>();
+    if (myPendingVacateLot) {
+      const lots = new Set(parkingLots(state, meId));
+      return { eligibleLots: lots, clickableLots: lots };
     }
-  }, [state, meId, mode, inActions, pending, myPendingRemoveDie, myPendingVacateLot]);
+    if (!inActions || pending) {
+      return { eligibleLots: new Set<LotId>(), clickableLots: new Set<LotId>() };
+    }
+    const lots = (() => {
+      switch (mode.kind) {
+        case "build-lot":
+          return new Set(buildTargets(state, meId));
+        case "sprawl-from":
+          return new Set(sprawlFromTargets(state, meId));
+        case "remodel-casino":
+          return new Set(remodelTargets(state, meId));
+        case "raise-casino":
+          return new Set(raiseTargets(state, meId));
+        case "sprawl-to":
+          return new Set(sprawlTargets(state, mode.fromLot, meId));
+        case "reorganize-casino":
+          return new Set(reorganizeTargets(state, meId));
+        case "gamble-casino":
+          return new Set(gambleTargets(state, meId));
+        case "vacate-die":
+          return new Set(vacateDieCandidates(state, meId));
+        default:
+          return new Set<LotId>();
+      }
+    })();
+    return { eligibleLots: lots, clickableLots: lots };
+  }, [
+    state,
+    meId,
+    mode,
+    inActions,
+    pending,
+    myPendingRemoveDie,
+    myPendingVacateLot,
+    myPendingReorg,
+    reorgDraft,
+  ]);
 
   // ------------------------------------------------------- helpers
   async function dispatch(command: Command) {
@@ -150,10 +233,73 @@ export function GamePlay({
     void dispatch({ type: "action", action });
   }
 
+  function placeReorgDie(lotId: LotId, dieIdx: number) {
+    if (!reorgDraft || dieIdx < 0 || dieIdx >= reorgDraft.remaining.length) return;
+    const value = reorgDraft.remaining[dieIdx];
+    setReorgDraft({
+      ...reorgDraft,
+      placements: { ...reorgDraft.placements, [lotId]: value },
+      remaining: reorgDraft.remaining.filter((_, i) => i !== dieIdx),
+    });
+    setSelectedReorgIdx(null);
+    setSelectedReorgLot(null);
+    playSound("diceLand");
+  }
+
+  function autoReorgDieIdx(draft: ReorgDraft): number | null {
+    // Only skip the pairing step for the last die — identical values still use tile/die pick.
+    if (draft.remaining.length === 1) return 0;
+    return null;
+  }
+
+  function handleReorgDieSelect(idx: number) {
+    if (!reorgDraft) return;
+    playSound("chip");
+
+    if (selectedReorgLot !== null) {
+      placeReorgDie(selectedReorgLot, idx);
+      return;
+    }
+
+    setSelectedReorgLot(null);
+    setSelectedReorgIdx(selectedReorgIdx === idx ? null : idx);
+  }
+
   function handleLotClick(lotId: LotId) {
     playSound("chip");
     if (myPendingRemoveDie) return void dispatch({ type: "chooseRemoveDie", lotId });
     if (myPendingVacateLot) return void dispatch({ type: "chooseVacateLot", lotId });
+    if (myPendingReorg && reorgDraft) {
+      if (!reorgDraft.slots.includes(lotId)) return;
+
+      const placed = reorgDraft.placements[lotId];
+      if (placed !== undefined) {
+        const { [lotId]: removed, ...rest } = reorgDraft.placements;
+        setReorgDraft({
+          ...reorgDraft,
+          placements: rest,
+          remaining: [...reorgDraft.remaining, removed],
+        });
+        setSelectedReorgIdx(null);
+        setSelectedReorgLot(null);
+        return;
+      }
+
+      if (selectedReorgIdx !== null) {
+        placeReorgDie(lotId, selectedReorgIdx);
+        return;
+      }
+
+      const autoIdx = autoReorgDieIdx(reorgDraft);
+      if (autoIdx !== null) {
+        placeReorgDie(lotId, autoIdx);
+        return;
+      }
+
+      setSelectedReorgIdx(null);
+      setSelectedReorgLot(selectedReorgLot === lotId ? null : lotId);
+      return;
+    }
     switch (mode.kind) {
       case "build-lot":
         return setMode({ kind: "build-color", lotId });
@@ -190,6 +336,16 @@ export function GamePlay({
       return "All 12 of your dice are on the board — tap one of your dice to move it to the new tile.";
     if (myPendingVacateLot)
       return "All 10 of your lot markers are placed — tap a lot to vacate its marker.";
+    if (myPendingReorg && reorgDraft) {
+      if (reorgComplete) return "All dice placed — tap Confirm below.";
+      if (selectedReorgIdx !== null)
+        return "Tap a highlighted tile to place the selected die.";
+      if (selectedReorgLot !== null)
+        return `Tap a die below to place on ${selectedReorgLot}.`;
+      const autoIdx = autoReorgDieIdx(reorgDraft);
+      if (autoIdx !== null) return "Tap a highlighted tile on the board to place a die.";
+      return "Select a die or a tile first — then select the other.";
+    }
     switch (mode.kind) {
       case "build-lot":
         return "Tap one of your parking lots to build on.";
@@ -267,9 +423,30 @@ export function GamePlay({
           <Board
             state={state}
             eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            focusedLots={selectedReorgLot ? new Set([selectedReorgLot]) : undefined}
+            overlayDice={reorgOverlayDice}
             onLotClick={onLotClick}
             className="min-h-0 min-w-0 flex-1"
           />
+
+          {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && (
+            <ReorgPlacementBar
+              playerColor={me.color}
+              remaining={reorgDraft.remaining}
+              selectedIdx={selectedReorgIdx}
+              selectedLot={selectedReorgLot}
+              onSelectDie={handleReorgDieSelect}
+              complete={reorgComplete}
+              onConfirm={() =>
+                dispatch({
+                  type: "chooseReorgPlacement",
+                  playerId: meId,
+                  placements: reorgDraft.placements,
+                })
+              }
+            />
+          )}
 
           {/* -------------------------------------------- status strip (mobile: full action dock) */}
           <ActionDock
@@ -283,7 +460,7 @@ export function GamePlay({
             modeHint={modeHint}
             waitingOnOthers={!!waitingOnOthers}
             hasPending={!!pending}
-            myPendingChoice={myPendingRemoveDie || myPendingVacateLot}
+            myPendingChoice={myPendingRemoveDie || myPendingVacateLot || myPendingReorg}
             dispatch={dispatch}
             openSheet={setSheet}
           />
@@ -316,7 +493,7 @@ export function GamePlay({
             modeHint={modeHint}
             waitingOnOthers={!!waitingOnOthers}
             hasPending={!!pending}
-            myPendingChoice={myPendingRemoveDie || myPendingVacateLot}
+            myPendingChoice={myPendingRemoveDie || myPendingVacateLot || myPendingReorg}
             dispatch={dispatch}
             openSheet={setSheet}
           />
@@ -415,17 +592,6 @@ export function GamePlay({
             onClose={() => setMode({ kind: "idle" })}
           />
         )}
-        {myPendingReorg && pending?.kind === "reorgPlacement" && (
-          <ReorgPlacementModal
-            key="reorg"
-            state={state}
-            lots={pending.slots[meId]}
-            values={pending.waiting[meId]}
-            onSubmit={(placements) =>
-              dispatch({ type: "chooseReorgPlacement", playerId: meId, placements })
-            }
-          />
-        )}
       </AnimatePresence>
     </main>
   );
@@ -453,6 +619,15 @@ function isActionActive(a: (typeof ACTIONS)[number], mode: Mode): boolean {
 }
 
 const ACTION_TILE_KIND: Record<(typeof ACTIONS)[number]["label"], ActionTileKind> = {
+  Build: "build",
+  Sprawl: "sprawl",
+  Remodel: "remodel",
+  Raise: "raise",
+  Reorganize: "reorganize",
+  Gamble: "gamble",
+};
+
+const ACTION_AVAILABILITY: Record<(typeof ACTIONS)[number]["label"], ActionKind> = {
   Build: "build",
   Sprawl: "sprawl",
   Remodel: "remodel",
@@ -522,12 +697,16 @@ function ActionDock({
 
   const showActions = isMyTurn && !hasPending;
 
+  const isActionDisabled = (a: (typeof ACTIONS)[number]) =>
+    !isActionAvailable(state, meId, ACTION_AVAILABILITY[a.label]);
+
   const renderActionButton = (a: (typeof ACTIONS)[number], className: string) => (
     <Button
       key={a.label}
       variant={isActionActive(a, mode) ? "gold" : "subtle"}
       size="sm"
-      disabled={a.label === "Gamble" && state.turn?.gambleUsed}
+      disabled={isActionDisabled(a)}
+      title={actionHintTitle(ACTION_AVAILABILITY[a.label], state.players.length)}
       onClick={() => setMode(isActionActive(a, mode) ? { kind: "idle" } : a.start)}
       className={className}
     >
@@ -543,12 +722,14 @@ function ActionDock({
         </p>
       ) : (
         <>
-          {ACTIONS.map((a) => (
+          {ACTIONS.map((a, i) => (
             <ActionTileButton
               key={a.label}
               kind={ACTION_TILE_KIND[a.label]}
               active={isActionActive(a, mode)}
-              disabled={a.label === "Gamble" && !!state.turn?.gambleUsed}
+              disabled={isActionDisabled(a)}
+              playerCount={state.players.length}
+              hintAlign={i % 3 === 0 ? "start" : i % 3 === 2 ? "end" : "center"}
               onClick={() => setMode(isActionActive(a, mode) ? { kind: "idle" } : a.start)}
             />
           ))}
@@ -993,84 +1174,75 @@ function WagerModal({
   );
 }
 
-function ReorgPlacementModal({
-  state,
-  lots,
-  values,
-  onSubmit,
+function ReorgPlacementBar({
+  playerColor,
+  remaining,
+  selectedIdx,
+  selectedLot,
+  onSelectDie,
+  complete,
+  onConfirm,
 }: {
-  state: GameState;
-  lots: LotId[];
-  values: number[];
-  onSubmit: (placements: Record<LotId, number>) => void;
+  playerColor: PlayerColor;
+  remaining: number[];
+  selectedIdx: number | null;
+  selectedLot: LotId | null;
+  onSelectDie: (idx: number) => void;
+  complete: boolean;
+  onConfirm: () => void;
 }) {
-  // Assign each rerolled value to one of the player's original tiles.
-  const [assignment, setAssignment] = useState<Record<LotId, number>>(() => {
-    const initial: Record<LotId, number> = {};
-    lots.forEach((lot, i) => (initial[lot] = values[i]));
-    return initial;
-  });
-
-  const counts = (vals: number[]) => {
-    const m = new Map<number, number>();
-    for (const v of vals) m.set(v, (m.get(v) ?? 0) + 1);
-    return m;
-  };
-  const valid = (() => {
-    const want = counts(values);
-    const got = counts(Object.values(assignment));
-    if (want.size !== got.size) return false;
-    for (const [v, n] of want) if (got.get(v) !== n) return false;
-    return true;
-  })();
-
   return (
-    <Modal onClose={() => {}} showCancel={false} title="Place your rerolled dice">
-      <p className="mt-1 text-xs text-muted">
-        Your dice were rerolled to{" "}
-        <span className="font-mono font-bold text-white">{values.join(", ")}</span>. Choose which
-        tile each value returns to.
-      </p>
-      <div className="mt-3 space-y-2">
-        {lots.map((lot) => (
-          <div key={lot} className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold">
-              {lot}{" "}
-              <span className="text-xs text-muted">
-                ({CASINOS[state.board[lot].color!]?.name})
-              </span>
-            </span>
-            <select
-              value={assignment[lot]}
-              onChange={(e) =>
-                setAssignment({ ...assignment, [lot]: parseInt(e.target.value) })
-              }
-              className="focus-ring rounded-md border border-[var(--border)] bg-black/40 px-2 py-1.5 text-sm"
-            >
-              {[...new Set(values)].map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
+    <div className="reorg-placement-bar shrink-0 rounded-xl border border-[var(--accent)]/35 bg-black/50 px-3 py-2.5 backdrop-blur-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">
+            Place rerolled dice
+          </p>
+          {selectedLot && (
+            <p className="text-xs font-medium text-white">
+              Tile <span className="font-mono text-[var(--accent)]">{selectedLot}</span> selected —
+              tap a die below
+            </p>
+          )}
+          {selectedIdx !== null && !selectedLot && (
+            <p className="text-xs font-medium text-white">
+              Die showing{" "}
+              <span className="font-mono text-[var(--accent)]">{remaining[selectedIdx]}</span>{" "}
+              selected — tap a highlighted tile
+            </p>
+          )}
+          {!selectedLot && selectedIdx === null && remaining.length > 0 && (
+            <p className="text-xs text-muted">Tap a tile on the board or a die below — either first.</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {remaining.length === 0 ? (
+              <span className="text-xs text-muted">All dice on the board</span>
+            ) : (
+              remaining.map((value, idx) => (
+                <button
+                  key={`${idx}-${value}`}
+                  type="button"
+                  onClick={() => onSelectDie(idx)}
+                  className={`focus-ring rounded-lg border p-1 transition-all ${
+                    selectedIdx === idx
+                      ? "border-[var(--accent)] bg-[var(--accent)]/15 ring-2 ring-[var(--accent)]/40"
+                      : "border-white/15 bg-black/30 hover:border-white/30"
+                  }`}
+                  aria-label={`Select die showing ${value}`}
+                  aria-pressed={selectedIdx === idx}
+                >
+                  <RollingDie value={value} color={playerColor} size={36} />
+                </button>
+              ))
+            )}
           </div>
-        ))}
+        </div>
+        {complete && (
+          <Button variant="gold" size="md" sound="diceLand" onClick={onConfirm} className="shrink-0">
+            Confirm placement
+          </Button>
+        )}
       </div>
-      {!valid && (
-        <p className="mt-2 text-xs text-[var(--accent-2)]">
-          Use each rerolled value exactly once.
-        </p>
-      )}
-      <Button
-        variant="gold"
-        size="md"
-        sound="diceLand"
-        disabled={!valid}
-        onClick={() => onSubmit(assignment)}
-        className="mt-4 w-full"
-      >
-        Place dice
-      </Button>
-    </Modal>
+    </div>
   );
 }

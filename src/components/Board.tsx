@@ -9,21 +9,101 @@
  * re-renders the lots that actually changed.
  */
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "motion/react";
 import { BLOCKS, BOARD_LOTS, lotsInBlock, type BlockId, type LotId } from "@/data/boardLots";
 import { CASINOS } from "@/data/casinoCards";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
+import { allCasinos, bossOf } from "@/engine/casinos";
 import type { GameState, TileState } from "@/engine/types";
 import { RollingDie } from "./DieFace";
 import { PlayerCarMarker } from "./ui/MiniIcons";
+import { ParkingLotMarkings } from "./ParkingLotMarkings";
+
+export interface BoardOverlayDie {
+  value: number;
+  color: PlayerColor;
+}
 
 export interface BoardProps {
   state: GameState;
-  /** Lots the current interaction can target (highlighted + clickable) */
+  /** Lots that pulse as valid drop targets */
   eligibleLots?: Set<LotId>;
+  /** Lots that accept clicks (defaults to eligibleLots when omitted) */
+  clickableLots?: Set<LotId>;
+  /** Preview dice drawn on top of lots (e.g. reorg placement draft) */
+  overlayDice?: Partial<Record<LotId, BoardOverlayDie>>;
+  /** Lots with a stronger focus ring (e.g. reorg tile picked first) */
+  focusedLots?: Set<LotId>;
   onLotClick?: (lotId: LotId) => void;
   className?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Boss-colored casino group outlines
+// ---------------------------------------------------------------------------
+
+interface EdgeMask {
+  n: boolean;
+  e: boolean;
+  s: boolean;
+  w: boolean;
+}
+
+interface BossOutline {
+  /** CSS color for the perimeter stroke */
+  color: string;
+  edges: EdgeMask;
+}
+
+/** Black is too dark on tiles/felt; use a light stone so the ring still reads. */
+function bossOutlineColor(playerColor: PlayerColor | null): string {
+  if (!playerColor) return "rgba(255, 255, 255, 0.4)";
+  if (playerColor === "black") return "rgba(212, 212, 216, 0.85)";
+  const hex = PLAYER_COLORS[playerColor].hex;
+  return `${hex}cc`;
+}
+
+function externalEdges(lotId: LotId, group: Set<LotId>): EdgeMask {
+  const { row, col, block } = BOARD_LOTS[lotId];
+  const geo = BLOCKS[block];
+  const at = (r: number, c: number): LotId | null => {
+    if (r < 0 || c < 0 || r >= geo.rows || c >= geo.cols) return null;
+    return `${block}${r * geo.cols + c + 1}`;
+  };
+  const inGroup = (id: LotId | null) => id !== null && group.has(id);
+  return {
+    n: !inGroup(at(row - 1, col)),
+    s: !inGroup(at(row + 1, col)),
+    w: !inGroup(at(row, col - 1)),
+    e: !inGroup(at(row, col + 1)),
+  };
+}
+
+function computeBossOutlines(state: GameState): Partial<Record<LotId, BossOutline>> {
+  const playersById = new Map(state.players.map((p) => [p.id, p]));
+  const result: Partial<Record<LotId, BossOutline>> = {};
+  for (const group of allCasinos(state.board)) {
+    const groupSet = new Set(group);
+    const bossId = bossOf(state.board, group);
+    const boss = bossId ? playersById.get(bossId) : null;
+    const color = bossOutlineColor(boss?.color ?? null);
+    for (const lotId of group) {
+      result[lotId] = { color, edges: externalEdges(lotId, groupSet) };
+    }
+  }
+  return result;
+}
+
+function bossOutlineShadow(outline: BossOutline): string {
+  const { color, edges } = outline;
+  const parts: string[] = [];
+  // Soft outer halo so the ring reads on busy tile art.
+  if (edges.n) parts.push(`0 -1px 0 0 ${color}`, `inset 0 2px 0 0 ${color}`);
+  if (edges.s) parts.push(`0 1px 0 0 ${color}`, `inset 0 -2px 0 0 ${color}`);
+  if (edges.w) parts.push(`-1px 0 0 0 ${color}`, `inset 2px 0 0 0 ${color}`);
+  if (edges.e) parts.push(`1px 0 0 0 ${color}`, `inset -2px 0 0 0 ${color}`);
+  return parts.join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -37,6 +117,10 @@ interface LotCellProps {
   parkingOwnerColor: PlayerColor | null;
   parkingOwnerName: string | null;
   eligible: boolean;
+  clickable: boolean;
+  focused: boolean;
+  overlayDie: BoardOverlayDie | null;
+  bossOutline: BossOutline | null;
   onClick?: (lotId: LotId) => void;
 }
 
@@ -47,10 +131,19 @@ function lotCellPropsEqual(a: LotCellProps, b: LotCellProps): boolean {
   return (
     a.lotId === b.lotId &&
     a.eligible === b.eligible &&
+    a.clickable === b.clickable &&
+    a.focused === b.focused &&
     a.onClick === b.onClick &&
     a.dieOwnerColor === b.dieOwnerColor &&
     a.parkingOwnerColor === b.parkingOwnerColor &&
     a.parkingOwnerName === b.parkingOwnerName &&
+    a.overlayDie?.value === b.overlayDie?.value &&
+    a.overlayDie?.color === b.overlayDie?.color &&
+    a.bossOutline?.color === b.bossOutline?.color &&
+    a.bossOutline?.edges.n === b.bossOutline?.edges.n &&
+    a.bossOutline?.edges.e === b.bossOutline?.edges.e &&
+    a.bossOutline?.edges.s === b.bossOutline?.edges.s &&
+    a.bossOutline?.edges.w === b.bossOutline?.edges.w &&
     a.tile.built === b.tile.built &&
     a.tile.color === b.tile.color &&
     a.tile.risers === b.tile.risers &&
@@ -66,10 +159,15 @@ const LotCellInner = memo(function LotCell({
   parkingOwnerColor,
   parkingOwnerName,
   eligible,
+  clickable: isClickable,
+  focused,
+  overlayDie,
+  bossOutline,
   onClick,
 }: LotCellProps) {
   const lot = BOARD_LOTS[lotId];
-  const clickable = eligible && !!onClick;
+  const clickable = isClickable && !!onClick;
+  const displayDie = overlayDie ?? (tile.die && dieOwnerColor ? { value: tile.die.value, color: dieOwnerColor } : null);
 
   let content: React.ReactNode;
   let style: React.CSSProperties = {};
@@ -77,6 +175,7 @@ const LotCellInner = memo(function LotCell({
   if (tile.built && tile.color) {
     const casino = CASINOS[tile.color];
     const height = 1 + tile.risers;
+    const tileArt = casino.tileImage;
     // Raised casinos read as stacked tiles via layered edge shadows.
     const stack =
       tile.risers > 0
@@ -84,21 +183,32 @@ const LotCellInner = memo(function LotCell({
             .map((_, i) => `${(i + 1) * 1.5}px ${(i + 1) * 1.5}px 0 rgba(0,0,0,${0.32 - i * 0.05})`)
             .join(", ") + ","
         : "";
-    style = {
-      background: `linear-gradient(155deg, ${casino.hex} 0%, ${casino.darkHex} 115%)`,
-      boxShadow: `${stack}inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 1px ${casino.darkHex}`,
-    };
+    style = tileArt
+      ? {
+          backgroundImage: `url(${tileArt})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          boxShadow: `${stack}0 1px 4px rgba(0,0,0,0.45)`,
+        }
+      : {
+          background: `linear-gradient(155deg, ${casino.hex} 0%, ${casino.darkHex} 115%)`,
+          boxShadow: `${stack}inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 1px ${casino.darkHex}`,
+        };
     content = (
       <motion.div
         key={`built-${tile.color}`}
         initial={{ scale: 0.55, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 17 }}
-        className="relative flex h-full w-full flex-col items-center justify-center"
+        className={`relative flex h-full w-full flex-col items-center justify-center ${
+          tileArt ? "casino-tile casino-tile--art" : ""
+        }`}
       >
         <span
-          className="absolute top-0.5 left-1 text-[8px] font-bold tracking-wide opacity-75"
-          style={{ color: casino.textHex }}
+          className={`absolute top-0.5 left-1 text-[8px] font-bold tracking-wide ${
+            tileArt ? "rounded-sm bg-black/55 px-0.5 text-white/90" : "opacity-75"
+          }`}
+          style={tileArt ? undefined : { color: casino.textHex }}
         >
           {lotId}
         </span>
@@ -110,18 +220,22 @@ const LotCellInner = memo(function LotCell({
             ×{height}
           </span>
         )}
-        {tile.die && dieOwnerColor ? (
+        {displayDie ? (
           <motion.div
+            key={overlayDie ? `overlay-${displayDie.value}` : "board-die"}
             initial={{ y: -14, scale: 1.3, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
+            className={overlayDie ? "reorg-preview-die" : undefined}
           >
-            <RollingDie value={tile.die.value} color={dieOwnerColor} size={30} />
+            <RollingDie value={displayDie.value} color={displayDie.color} size={30} />
           </motion.div>
         ) : (
           <span
-            className="rounded-sm px-1 text-[8px] font-semibold uppercase tracking-wider opacity-70"
-            style={{ color: casino.textHex, background: "rgba(0,0,0,0.22)" }}
+            className={`rounded-sm px-1 text-[8px] font-semibold uppercase tracking-wider ${
+              tileArt ? "bg-black/50 text-white/80" : "opacity-70"
+            }`}
+            style={tileArt ? undefined : { color: casino.textHex, background: "rgba(0,0,0,0.22)" }}
           >
             no die
           </span>
@@ -129,25 +243,21 @@ const LotCellInner = memo(function LotCell({
       </motion.div>
     );
   } else {
-    style = {
-      background:
-        "linear-gradient(160deg, #262c3b 0%, #1f2431 100%)",
-      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 -6px 12px rgba(0,0,0,0.25)",
-    };
     content = (
-      <div className="relative flex h-full w-full flex-col items-center justify-center">
-        <span className="text-[10px] font-bold leading-tight text-white/85">{lotId}</span>
-        <span className="text-[9px] leading-tight text-white/45">${lot.price}M</span>
-        <span className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-[9px] font-bold text-white/65">
-          {lot.printedDie}
-        </span>
+      <div className="parking-lot__inner">
+        <ParkingLotMarkings className="parking-lot__markings" />
+        <div className="parking-lot__meta">
+          <span className="parking-lot__id">{lotId}</span>
+          <span className="parking-lot__price">${lot.price}M</span>
+          <span className="parking-lot__die">{lot.printedDie}</span>
+        </div>
         {parkingOwnerColor && (
           <motion.span
             key={parkingOwnerColor}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
-            className="absolute bottom-0 right-0 z-[1]"
+            className="parking-lot__marker"
           >
             <PlayerCarMarker
               color={PLAYER_COLORS[parkingOwnerColor].hex}
@@ -161,6 +271,8 @@ const LotCellInner = memo(function LotCell({
     );
   }
 
+  const isParking = !tile.built;
+
   return (
     <motion.button
       type="button"
@@ -168,13 +280,22 @@ const LotCellInner = memo(function LotCell({
       onClick={clickable ? () => onClick!(lotId) : undefined}
       whileHover={clickable ? { scale: 1.06, zIndex: 20 } : undefined}
       whileTap={clickable ? { scale: 0.97 } : undefined}
-      className={`focus-ring relative h-full w-full select-none rounded-[3px] ${
-        clickable ? "eligible-pulse z-10 cursor-pointer" : "cursor-default"
+      className={`focus-ring relative h-full w-full select-none ${
+        isParking ? "parking-lot" : "rounded-[3px]"
+      } ${eligible ? "eligible-pulse z-10" : ""} ${focused ? "reorg-slot-focused z-10" : ""} ${
+        clickable ? "cursor-pointer" : "cursor-default"
       }`}
-      style={style}
+      style={isParking ? undefined : style}
       aria-label={`Lot ${lotId}${eligible ? " (selectable)" : ""}`}
     >
       {content}
+      {bossOutline && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[1] rounded-[3px]"
+          style={{ boxShadow: bossOutlineShadow(bossOutline) }}
+        />
+      )}
     </motion.button>
   );
 }, lotCellPropsEqual);
@@ -187,11 +308,19 @@ function Block({
   state,
   block,
   eligibleLots,
+  clickableLots,
+  overlayDice,
+  focusedLots,
+  bossOutlines,
   onLotClick,
 }: {
   state: GameState;
   block: BlockId;
   eligibleLots?: Set<LotId>;
+  clickableLots?: Set<LotId>;
+  overlayDice?: Partial<Record<LotId, BoardOverlayDie>>;
+  focusedLots?: Set<LotId>;
+  bossOutlines: Partial<Record<LotId, BossOutline>>;
   onLotClick?: (lotId: LotId) => void;
 }) {
   const geo = BLOCKS[block];
@@ -221,6 +350,10 @@ function Block({
             parkingOwnerColor={parkingOwner?.color ?? null}
             parkingOwnerName={parkingOwner?.name ?? null}
             eligible={eligibleLots?.has(lotId) ?? false}
+            clickable={clickableLots?.has(lotId) ?? eligibleLots?.has(lotId) ?? false}
+            focused={focusedLots?.has(lotId) ?? false}
+            overlayDie={overlayDice?.[lotId] ?? null}
+            bossOutline={bossOutlines[lotId] ?? null}
             onClick={onLotClick}
           />
         );
@@ -250,7 +383,20 @@ function Street({ name, connect }: { name: string; connect?: "strip-left" | "str
 // Board
 // ---------------------------------------------------------------------------
 
-export function Board({ state, eligibleLots, onLotClick, className = "" }: BoardProps) {
+export function Board({
+  state,
+  eligibleLots,
+  clickableLots,
+  overlayDice,
+  focusedLots,
+  onLotClick,
+  className = "",
+}: BoardProps) {
+  const bossOutlines = useMemo(
+    () => computeBossOutlines(state),
+    [state.board, state.players],
+  );
+
   // All sizes are expressed in fr units of one lot cell so every cell on the
   // board renders at exactly the same size: 3 cells per side column, 8 cell
   // rows per column, streets 0.35 and the Strip 0.65 of a cell. The fixed
@@ -263,11 +409,38 @@ export function Board({ state, eligibleLots, onLotClick, className = "" }: Board
       >
         {/* Left column: A (2 rows), C (4 rows), E (2 rows) */}
         <div className="z-10 grid min-h-0 grid-rows-[2fr_0.35fr_4fr_0.35fr_2fr]">
-          <Block state={state} block="A" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="A"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
           <Street name="Sahara Ave" connect="strip-right" />
-          <Block state={state} block="C" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="C"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
           <Street name="Flamingo Rd" connect="strip-right" />
-          <Block state={state} block="E" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="E"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
         </div>
         {/* The Strip */}
         <div className="relative z-0 flex min-h-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-b from-[#12172a] via-[#1a2138] to-[#12172a] shadow-[inset_0_0_14px_rgba(0,0,0,0.55)]">
@@ -291,11 +464,38 @@ export function Board({ state, eligibleLots, onLotClick, className = "" }: Board
         </div>
         {/* Right column: B (2 rows), D (3 rows), F (3 rows) */}
         <div className="z-10 grid min-h-0 grid-rows-[2fr_0.35fr_3fr_0.35fr_3fr]">
-          <Block state={state} block="B" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="B"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
           <Street name="Sahara Ave" connect="strip-left" />
-          <Block state={state} block="D" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="D"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
           <Street name="Harmon Ave" connect="strip-left" />
-          <Block state={state} block="F" eligibleLots={eligibleLots} onLotClick={onLotClick} />
+          <Block
+            state={state}
+            block="F"
+            eligibleLots={eligibleLots}
+            clickableLots={clickableLots}
+            overlayDice={overlayDice}
+            focusedLots={focusedLots}
+            bossOutlines={bossOutlines}
+            onLotClick={onLotClick}
+          />
         </div>
       </div>
     </div>

@@ -30,14 +30,56 @@ export interface CasinoMeta {
   darkHex: string;
   /** Readable text color on the tile */
   textHex: string;
+  /** Optional artwork for built tiles on the board (`/public` path) */
+  tileImage?: string;
 }
 
 export const CASINOS: Record<CasinoColor, CasinoMeta> = {
-  albion: { key: "albion", name: "Albion", tagline: "Royal Empire", hex: "#8b3fa8", darkHex: "#5a2870", textHex: "#ffffff" },
-  sphinx: { key: "sphinx", name: "Sphinx", tagline: "Desert Crown", hex: "#d4a72c", darkHex: "#8a6e10", textHex: "#1a1a1a" },
-  vega: { key: "vega", name: "Vega", tagline: "Star Alliance", hex: "#1f8a68", darkHex: "#125942", textHex: "#ffffff" },
-  tivoli: { key: "tivoli", name: "Tivoli", tagline: "Grand Arcade", hex: "#9aa5b1", darkHex: "#5f6871", textHex: "#1a1a1a" },
-  pioneer: { key: "pioneer", name: "Pioneer", tagline: "Frontier Line", hex: "#a05c2c", darkHex: "#5c3b21", textHex: "#ffffff" },
+  albion: {
+    key: "albion",
+    name: "Albion",
+    tagline: "Royal Empire",
+    hex: "#8b3fa8",
+    darkHex: "#5a2870",
+    textHex: "#ffffff",
+    tileImage: "/casinos/albion-tile.png",
+  },
+  sphinx: {
+    key: "sphinx",
+    name: "Sphinx",
+    tagline: "Desert Crown",
+    hex: "#d4a72c",
+    darkHex: "#8a6e10",
+    textHex: "#1a1a1a",
+    tileImage: "/casinos/sphinx-tile.png",
+  },
+  vega: {
+    key: "vega",
+    name: "Vega",
+    tagline: "Star Alliance",
+    hex: "#1f8a68",
+    darkHex: "#125942",
+    textHex: "#ffffff",
+    tileImage: "/casinos/vega-tile.png",
+  },
+  tivoli: {
+    key: "tivoli",
+    name: "Tivoli",
+    tagline: "Grand Arcade",
+    hex: "#9aa5b1",
+    darkHex: "#5f6871",
+    textHex: "#1a1a1a",
+    tileImage: "/casinos/tivoli-tile.png",
+  },
+  pioneer: {
+    key: "pioneer",
+    name: "Pioneer",
+    tagline: "Frontier Line",
+    hex: "#a05c2c",
+    darkHex: "#5c3b21",
+    textHex: "#ffffff",
+    tileImage: "/casinos/pioneer-tile.png",
+  },
 };
 
 export const CASINO_COLOR_KEYS = Object.keys(CASINOS) as CasinoColor[];

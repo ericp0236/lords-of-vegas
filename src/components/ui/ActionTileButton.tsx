@@ -1,8 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
+import { actionHintTitle, ACTION_HINTS } from "@/lib/actionHints";
 import { playSound } from "@/lib/sound/SoundManager";
+import { ActionHintPopover, type HintAlign } from "./ActionHintPopover";
+
+const HINT_HOVER_DELAY_MS = 550;
 
 export type ActionTileKind =
   | "build"
@@ -25,35 +29,92 @@ export function ActionTileButton({
   kind,
   active = false,
   disabled = false,
+  playerCount,
+  hintAlign = "center",
   onClick,
   className = "",
 }: {
   kind: ActionTileKind;
   active?: boolean;
   disabled?: boolean;
+  /** Used to show max raise height in the hover hint. */
+  playerCount?: number;
+  /** Horizontal alignment of the hover hint relative to the button. */
+  hintAlign?: HintAlign;
   onClick: () => void;
   className?: string;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [useNativeHintTitle, setUseNativeHintTitle] = useState(false);
+  const hint = ACTION_HINTS[kind];
+  const costLabel =
+    kind === "raise" && playerCount
+      ? `${hint.cost} (max height ${playerCount})`
+      : hint.cost;
+
+  function clearHintTimer() {
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
+  }
+
+  function scheduleHint() {
+    clearHintTimer();
+    hintTimerRef.current = setTimeout(() => setHintOpen(true), HINT_HOVER_DELAY_MS);
+  }
+
+  function hideHint() {
+    clearHintTimer();
+    setHintOpen(false);
+  }
+
+  useEffect(() => () => clearHintTimer(), []);
+
+  // Native title tooltips duplicate the custom popover on hover-capable devices.
+  useEffect(() => {
+    setUseNativeHintTitle(!window.matchMedia("(hover: hover)").matches);
+  }, []);
+
   return (
-    <motion.button
-      type="button"
-      whileTap={disabled ? undefined : { scale: 0.96 }}
-      transition={{ type: "spring", stiffness: 500, damping: 25 }}
-      disabled={disabled}
-      onClick={() => {
-        if (disabled) return;
-        playSound("click");
-        onClick();
-      }}
-      aria-pressed={active}
-      aria-label={LABELS[kind]}
-      className={`action-tile action-tile--${kind} focus-ring ${active ? "action-tile--active" : ""} ${className}`}
+    <div
+      ref={wrapRef}
+      className={`action-hint-wrap ${className}`}
+      onMouseEnter={scheduleHint}
+      onMouseLeave={hideHint}
     >
-      <span className="action-tile__icon" aria-hidden="true">
-        <ActionIcon kind={kind} />
-      </span>
-      <span className="action-tile__label">{LABELS[kind]}</span>
-    </motion.button>
+      <motion.button
+        type="button"
+        whileTap={disabled ? undefined : { scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+        disabled={disabled}
+        onFocus={() => setHintOpen(true)}
+        onBlur={hideHint}
+        onClick={() => {
+          if (disabled) return;
+          playSound("click");
+          onClick();
+        }}
+        aria-pressed={active}
+        aria-label={LABELS[kind]}
+        title={useNativeHintTitle ? actionHintTitle(kind, playerCount) : undefined}
+        className={`action-tile action-tile--${kind} focus-ring ${active ? "action-tile--active" : ""}`}
+      >
+        <span className="action-tile__icon" aria-hidden="true">
+          <ActionIcon kind={kind} />
+        </span>
+        <span className="action-tile__label">{LABELS[kind]}</span>
+      </motion.button>
+      <ActionHintPopover
+        anchorRef={wrapRef}
+        open={hintOpen}
+        summary={hint.summary}
+        costLabel={costLabel}
+        align={hintAlign}
+      />
+    </div>
   );
 }
 

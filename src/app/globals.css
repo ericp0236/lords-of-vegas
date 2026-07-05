@@ -113,6 +113,143 @@ body {
   animation: eligiblePulse 1.4s ease-in-out infinite;
 }
 
+.parking-lot.eligible-pulse {
+  animation: parkingEligiblePulse 1.4s ease-in-out infinite;
+}
+
+/* Reorg placement preview on the board */
+.reorg-preview-die {
+  filter: drop-shadow(0 0 6px rgba(245, 197, 66, 0.75));
+}
+
+.reorg-slot-focused {
+  outline: 3px solid rgba(245, 197, 66, 0.95);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.45),
+    0 0 16px rgba(245, 197, 66, 0.7);
+  animation: reorgSlotFocus 1.2s ease-in-out infinite;
+}
+
+@keyframes reorgSlotFocus {
+  0%,
+  100% {
+    outline-color: rgba(245, 197, 66, 0.95);
+  }
+  50% {
+    outline-color: rgba(255, 230, 140, 1);
+  }
+}
+
+/* Unbuilt lots — quiet dark asphalt with faint stall hints */
+.parking-lot {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  border-radius: 3px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.parking-lot__inner {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  background:
+    repeating-radial-gradient(
+      circle at 22% 28%,
+      rgba(255, 255, 255, 0.018) 0 0.5px,
+      transparent 0.5px 6px
+    ),
+    linear-gradient(165deg, #2a2e36 0%, #22262e 55%, #1a1e26 100%);
+  box-shadow: inset 0 -5px 10px rgba(0, 0, 0, 0.22);
+}
+
+.parking-lot__markings {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  height: 100%;
+  width: 100%;
+  opacity: 0.38;
+}
+
+.parking-lot-line {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.65;
+  stroke-linecap: square;
+}
+
+.parking-lot__meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  pointer-events: none;
+}
+
+.parking-lot__id {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.parking-lot__price {
+  font-size: 9px;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.48);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.parking-lot__die {
+  margin-top: 2px;
+  display: inline-flex;
+  height: 1rem;
+  width: 1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.42);
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.parking-lot__marker {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 3;
+}
+
+.casino-tile--art {
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+@keyframes parkingEligiblePulse {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.45), 0 0 10px rgba(245, 197, 66, 0.2);
+  }
+}
+
 /* The Strip's neon centerline */
 .strip-neon {
   box-shadow:
@@ -352,6 +489,7 @@ body {
   cursor: not-allowed;
   opacity: 0.42;
   filter: grayscale(0.35);
+  pointer-events: none;
 }
 
 .action-tile--active {
@@ -424,6 +562,63 @@ body {
   background:
     radial-gradient(ellipse 90% 70% at 50% 22%, rgba(255, 120, 130, 0.18), transparent 58%),
     linear-gradient(165deg, #8a2838 0%, #601824 48%, #3a0e16 100%);
+}
+
+/* Hover hints for action tile buttons (desktop portal) + title fallback (mobile). */
+.action-hint-wrap {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+}
+
+.action-hint-wrap:has(.action-tile:disabled) {
+  cursor: not-allowed;
+}
+
+.action-hint-popover {
+  z-index: 200;
+  width: max-content;
+  max-width: min(260px, 72vw);
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  background: linear-gradient(165deg, #1f2430 0%, #12151c 100%);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  pointer-events: none;
+  animation: action-hint-in 0.14s ease;
+}
+
+@keyframes action-hint-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.action-hint-popover__summary {
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.action-hint-popover__cost {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--money);
+  font-weight: 600;
+}
+
+.action-hint-popover__cost-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 /* Full-width End turn / Cancel bar buttons in the action grid. */

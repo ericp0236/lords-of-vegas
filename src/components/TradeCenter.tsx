@@ -13,10 +13,12 @@ import { CASINOS, CASINO_COLOR_KEYS, type CasinoColor } from "@/data/casinoCards
 import { diceLots, parkingLots } from "@/engine/helpers";
 import type { ActionCommand, GameState, TradeStep } from "@/engine/types";
 import {
-  bossCasinoLots,
   buildTargets,
   gambleTargets,
+  raiseTargets,
+  remodelTargets,
   reorganizeTargets,
+  sprawlFromTargets,
   sprawlTargets,
 } from "@/lib/candidates";
 import type { useGame } from "@/lib/useGame";
@@ -280,9 +282,11 @@ function TradeBuilder({
       case "build":
         return buildTargets(state, activeId);
       case "sprawl":
+        return sprawlFromTargets(state, activeId);
       case "remodel":
+        return remodelTargets(state, activeId);
       case "raise":
-        return bossCasinoLots(state, activeId);
+        return raiseTargets(state, activeId);
       case "reorganize":
         return reorganizeTargets(state, activeId);
       case "gamble":
@@ -291,8 +295,9 @@ function TradeBuilder({
   }, [state, activeId, aType]);
 
   const sprawlToOptions = useMemo(
-    () => (aType === "sprawl" && aLot ? sprawlTargets(state, aLot) : []),
-    [state, aType, aLot],
+    () =>
+      aType === "sprawl" && aLot && activeId ? sprawlTargets(state, aLot, activeId) : [],
+    [state, aType, aLot, activeId],
   );
 
   function addStep() {
