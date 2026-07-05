@@ -2,6 +2,12 @@
   "mcpServers": {
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=hnmxkkvlwhofiqqppgdi"
+    },
+    "rive": {
+      "url": "http://127.0.0.1:9791/mcp"
+    },
+    "higgsfield": {
+      "url": "https://mcp.higgsfield.ai/mcp"
     }
   }
 }
