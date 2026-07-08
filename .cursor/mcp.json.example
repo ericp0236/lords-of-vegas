@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "supabase": {
-      "url": "https://mcp.supabase.com/mcp?project_ref=hnmxkkvlwhofiqqppgdi"
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF"
     },
     "rive": {
       "url": "http://127.0.0.1:9791/mcp"
