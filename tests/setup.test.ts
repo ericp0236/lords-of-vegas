@@ -87,3 +87,46 @@ describe("game setup", () => {
     expect(state.deck.length + discarded).toBe(49 - 6 + 6); // 43 deck + 6 discard
   });
 });
+
+describe("replay", () => {
+  function endedGame(): GameState {
+    let state = startedGame();
+    state = {
+      ...state,
+      phase: "ended",
+      winnerId: "p0",
+      turn: null,
+      trade: null,
+      pendingChoice: null,
+      players: state.players.map((p, i) => ({
+        ...p,
+        trackIndex: 3 - i,
+        money: 50 - i * 10,
+      })),
+    };
+    return state;
+  }
+
+  it("only the host can replay after game over", () => {
+    const state = endedGame();
+    expect(applyCommand(state, "p1", { type: "replayGame" }).ok).toBe(false);
+  });
+
+  it("replays with the same players and fresh setup", () => {
+    const ended = endedGame();
+    const r = applyCommand(ended, "p0", { type: "replayGame" });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.state.phase).toBe("playing");
+    expect(r.state.winnerId).toBeNull();
+    expect(r.state.players.map((p) => p.id)).toEqual(ended.players.map((p) => p.id));
+    expect(r.state.players.every((p) => p.trackIndex === 0)).toBe(true);
+    expect(r.state.turn?.phase).toBe("draw");
+    expect(r.state.log[0]?.message).toMatch(/rematch/i);
+    for (const p of r.state.players) {
+      const lots = Object.values(r.state.board).filter(
+        (t) => !t.built && t.parkingOwner === p.id,
+      );
+      expect(lots).toHaveLength(2);
+    }
+  });
+});

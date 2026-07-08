@@ -201,16 +201,16 @@ export function determineFirstPlayer(
   return { firstId: contenders[0], rolls };
 }
 
-export function startGame(
+function freshTileSupply(): Record<CasinoColor, number> {
+  return Object.fromEntries(
+    CASINO_COLOR_KEYS.map((c) => [c, TILES_PER_COLOR]),
+  ) as Record<CasinoColor, number>;
+}
+
+function setupNewRound(
   state: GameState,
   rng: Rng,
-): { state: GameState; events: LogEvent[] } | { error: string } {
-  if (state.phase !== "lobby") return { error: "The game has already started." };
-  if (state.players.length < MIN_PLAYERS)
-    return { error: `Need at least ${MIN_PLAYERS} players to start.` };
-  if (state.players.length > MAX_PLAYERS)
-    return { error: `At most ${MAX_PLAYERS} players.` };
-
+): { state: GameState; events: LogEvent[] } {
   const events: LogEvent[] = [];
   let s: GameState = {
     ...state,
@@ -218,6 +218,12 @@ export function startGame(
     joinRequests: [],
     board: emptyBoard(),
     discard: emptyDiscard(),
+    tileSupply: freshTileSupply(),
+    turn: null,
+    pendingChoice: null,
+    trade: null,
+    winnerId: null,
+    log: [],
   };
 
   // Shuffle the 48 lot cards and deal 2 to each player.
@@ -284,6 +290,40 @@ export function startGame(
     },
   };
   return { state: appendLog(s, events), events };
+}
+
+export function startGame(
+  state: GameState,
+  rng: Rng,
+): { state: GameState; events: LogEvent[] } | { error: string } {
+  if (state.phase !== "lobby") return { error: "The game has already started." };
+  if (state.players.length < MIN_PLAYERS)
+    return { error: `Need at least ${MIN_PLAYERS} players to start.` };
+  if (state.players.length > MAX_PLAYERS)
+    return { error: `At most ${MAX_PLAYERS} players.` };
+
+  return setupNewRound(state, rng);
+}
+
+export function replayGame(
+  state: GameState,
+  rng: Rng,
+): { state: GameState; events: LogEvent[] } | { error: string } {
+  if (state.phase !== "ended") return { error: "The game hasn't ended yet." };
+  if (state.players.length < MIN_PLAYERS)
+    return { error: `Need at least ${MIN_PLAYERS} players to replay.` };
+
+  const players = state.players.map((p) => ({ ...p, money: 0, trackIndex: 0 }));
+  const replayEvent = makeEvent(
+    { ...state, turn: null, log: [] },
+    "lobby",
+    `${state.players.find((p) => p.id === state.hostId)?.name ?? "The host"} started a rematch with the same players.`,
+  );
+  const { state: next, events } = setupNewRound({ ...state, players }, rng);
+  return {
+    state: { ...next, log: [replayEvent, ...next.log] },
+    events: [replayEvent, ...events],
+  };
 }
 
 /** Seat-order successor of the active player. */

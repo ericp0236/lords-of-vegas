@@ -10,6 +10,7 @@ import {
   approveJoin,
   rejectJoin,
   requestJoin,
+  replayGame,
   startGame,
 } from "./setup";
 import { drawCard, endTurn, runDrawSteps2to5 } from "./turn";
@@ -73,6 +74,11 @@ export function applyCommand(
       case "startGame": {
         if (actorId !== state.hostId) return err("Only the host can start the game.");
         const r = startGame(state, rng);
+        return "error" in r ? err(r.error) : ok(r.state, r.events);
+      }
+      case "replayGame": {
+        if (actorId !== state.hostId) return err("Only the host can start a rematch.");
+        const r = replayGame(state, rng);
         return "error" in r ? err(r.error) : ok(r.state, r.events);
       }
 

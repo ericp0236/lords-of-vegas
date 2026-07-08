@@ -86,7 +86,15 @@ export function GameRoom({ roomCode }: { roomCode: string }) {
   }
 
   if (state.phase === "ended") {
-    return <GameOver state={state} roomCode={roomCode} />;
+    return (
+      <GameOver
+        state={state}
+        roomCode={roomCode}
+        meId={me!.id}
+        send={game.send}
+        error={game.error}
+      />
+    );
   }
 
   return <GamePlay state={state} meId={me!.id} send={game.send} error={game.error} />;
@@ -362,8 +370,21 @@ function Lobby({
 
 // ---------------------------------------------------------------------------
 
-function GameOver({ state, roomCode }: { state: GameState; roomCode: string }) {
+function GameOver({
+  state,
+  roomCode,
+  meId,
+  send,
+  error,
+}: {
+  state: GameState;
+  roomCode: string;
+  meId: string;
+  send: ReturnType<typeof useGame>["send"];
+  error: string | null;
+}) {
   const winner = state.players.find((p) => p.id === state.winnerId);
+  const isHost = meId === state.hostId;
   const standings = [...state.players].sort(
     (a, b) => SCORE_TRACK[b.trackIndex] - SCORE_TRACK[a.trackIndex] || b.money - a.money,
   );
@@ -434,12 +455,30 @@ function GameOver({ state, roomCode }: { state: GameState; roomCode: string }) {
         <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">Game log</h2>
         <LogPanel lines={stateLogLines(state.log)} className="max-h-72" autoScroll={false} />
       </section>
-      <Link
-        href="/"
-        className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-bold text-black hover:brightness-110"
-      >
-        Host another game
-      </Link>
+      <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
+        {isHost ? (
+          <Button
+            variant="gold"
+            size="lg"
+            sound="success"
+            onClick={() => send(meId, { type: "replayGame" })}
+            className="w-full sm:w-auto"
+          >
+            Replay with same players
+          </Button>
+        ) : (
+          <p className="text-center text-sm text-muted">
+            Waiting for the host to start a rematch…
+          </p>
+        )}
+        <Link
+          href="/"
+          className="rounded-lg border border-[var(--border)] px-5 py-2.5 text-center text-sm font-bold text-muted hover:border-white/30 hover:text-white"
+        >
+          Host another game
+        </Link>
+      </div>
+      {error && <p className="text-center text-sm text-[var(--accent-2)]">{error}</p>}
       <p className="text-xs text-muted">Room {roomCode}</p>
     </main>
   );

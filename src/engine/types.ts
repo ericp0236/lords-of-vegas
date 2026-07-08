@@ -230,6 +230,7 @@ export type Command =
   | { type: "rejectJoin"; requestId: string }
   | { type: "leaveLobby"; playerId: string }
   | { type: "startGame" }
+  | { type: "replayGame" }
   // Turn
   | { type: "drawCard" }
   | { type: "action"; action: ActionCommand }

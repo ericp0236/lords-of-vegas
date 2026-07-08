@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 
 const PIP_LAYOUTS: Record<number, [number, number][]> = {
@@ -99,9 +99,40 @@ export function DieFace({
   );
 }
 
+function nextPipFace(face: number): number {
+  return (face % 6) + 1;
+}
+
+/** Cycle pip faces +1 each step, ending on the final roll result. */
+function buildRollSequence(start: number, end: number, steps: number): number[] {
+  if (steps <= 1) return [end];
+  const faces: number[] = [start];
+  let current = start;
+  for (let i = 0; i < steps - 2; i++) {
+    current = nextPipFace(current);
+    if (i === steps - 3 && current === end && steps > 3) {
+      current = nextPipFace(current);
+    }
+    faces.push(current);
+  }
+  faces.push(end);
+  return faces;
+}
+
+/** Fast-to-slow delays so the die feels like it is slowing to a stop. */
+function rollStepDelays(stepCount: number, totalMs: number): number[] {
+  if (stepCount <= 0) return [];
+  const weights = Array.from({ length: stepCount }, (_, i) => {
+    const t = (i + 1) / stepCount;
+    return 0.35 + t * t * 1.65;
+  });
+  const sum = weights.reduce((a, b) => a + b, 0);
+  return weights.map((w) => Math.round((w / sum) * totalMs));
+}
+
 /**
- * A die that visibly rolls when its value changes: face shuffles through
- * random values with a rotation wobble before settling on the real result.
+ * A die that visibly rolls when its value changes: each pip face tumbles in
+ * with a 3D flip while cycling 1→2→3→4→5→6 before settling on the result.
  */
 export function RollingDie({
   value,
@@ -123,62 +154,128 @@ export function RollingDie({
   /** Animate from a specific prior value (reorganize reveal) */
   fromValue?: number;
 }) {
-  const [display, setDisplay] = useState(() => {
-    if (fromValue !== undefined) return fromValue;
-    if (rollOnMount) return 1 + Math.floor(Math.random() * 6);
-    return value;
-  });
-  const [rolling, setRolling] = useState(false);
-  const tickCount = longRoll ? 11 : 6;
-  const tickMs = longRoll ? 95 : 75;
-  const wobbleDuration = longRoll ? 0.9 : 0.5;
+  const shouldRollOnMount = rollOnMount || fromValue !== undefined;
+  const stepCount = longRoll ? 15 : 11;
+  const totalMs = longRoll ? 1200 : 720;
   const revealKey =
     fromValue !== undefined ? `reveal:${fromValue}->${value}:${longRoll}` : null;
   const revealRanRef = useRef<string | null>(null);
-  const prevRef = useRef<number | null>(
-    rollOnMount || fromValue !== undefined ? null : value,
-  );
+  const prevRef = useRef<number | null>(shouldRollOnMount ? null : value);
+  const timersRef = useRef<number[]>([]);
+
+  const [display, setDisplay] = useState(() => {
+    if (fromValue !== undefined) return fromValue;
+    if (shouldRollOnMount) return nextPipFace(nextPipFace(value));
+    return value;
+  });
+  const [rolling, setRolling] = useState(shouldRollOnMount);
+  const [landing, setLanding] = useState(false);
+  const [faceEpoch, setFaceEpoch] = useState(0);
+
+  const clearTimers = () => {
+    for (const id of timersRef.current) window.clearTimeout(id);
+    timersRef.current = [];
+  };
+
+  const schedule = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+  };
 
   useEffect(() => {
+    clearTimers();
     const isReveal = fromValue !== undefined;
+    let startFace: number;
+
     if (isReveal) {
       if (revealRanRef.current === revealKey) return;
       revealRanRef.current = revealKey;
       prevRef.current = value;
-      setDisplay(fromValue);
-      setRolling(true);
+      startFace = fromValue;
     } else if (prevRef.current === value) {
       return;
     } else {
+      startFace = prevRef.current ?? nextPipFace(nextPipFace(value));
       prevRef.current = value;
-      setRolling(true);
     }
 
-    let ticks = 0;
-    const interval = setInterval(() => {
-      ticks += 1;
-      if (ticks >= tickCount) {
-        clearInterval(interval);
-        setDisplay(value);
+    const sequence = buildRollSequence(startFace, value, stepCount);
+    const delays = rollStepDelays(sequence.length - 1, totalMs);
+
+    setRolling(true);
+    setLanding(false);
+    setDisplay(sequence[0]);
+    setFaceEpoch(0);
+
+    let step = 0;
+    const advance = () => {
+      step += 1;
+      if (step >= sequence.length) {
         setRolling(false);
-      } else {
-        setDisplay(1 + Math.floor(Math.random() * 6));
+        setLanding(true);
+        schedule(() => setLanding(false), 320);
+        return;
       }
-    }, tickMs);
-    return () => clearInterval(interval);
-  }, [value, fromValue, revealKey, tickCount, tickMs]);
+      setDisplay(sequence[step]);
+      setFaceEpoch((n) => n + 1);
+      schedule(advance, delays[step] ?? 80);
+    };
+
+    schedule(advance, delays[0] ?? 45);
+    return clearTimers;
+  }, [value, fromValue, revealKey, stepCount, totalMs]);
+
+  const die = (
+    <DieFace value={display} color={color} palette={palette} size={size} />
+  );
+
+  if (!rolling && !landing && faceEpoch === 0) {
+    return <span className="inline-flex">{die}</span>;
+  }
 
   return (
-    <motion.div
-      animate={
-        rolling
-          ? { rotate: [0, -14, 11, -8, 5, 0], scale: [1, 1.15, 1.1, 1.05, 1] }
-          : { rotate: 0, scale: 1 }
-      }
-      transition={{ duration: wobbleDuration, ease: "easeOut" }}
-      className="inline-flex"
+    <div
+      className="inline-flex items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        perspective: size * 2.4,
+      }}
     >
-      <DieFace value={display} color={color} palette={palette} size={size} />
-    </motion.div>
+      <motion.div
+        className="inline-flex origin-center"
+        animate={
+          landing
+            ? { scale: [1.18, 0.94, 1], rotateZ: [0, -4, 0] }
+            : { scale: 1, rotateZ: 0 }
+        }
+        transition={
+          landing
+            ? { duration: 0.32, ease: [0.22, 1, 0.36, 1] }
+            : { duration: 0.08 }
+        }
+      >
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div
+            key={faceEpoch}
+            className="inline-flex origin-center"
+            style={{ transformStyle: "preserve-3d", backfaceVisibility: "hidden" }}
+            initial={
+              faceEpoch === 0
+                ? { rotateX: 0, rotateY: 0, opacity: 1, scale: 1 }
+                : { rotateX: -92, rotateY: 18, scale: 0.65, opacity: 0.08 }
+            }
+            animate={{ rotateX: 0, rotateY: 0, scale: 1, opacity: 1 }}
+            exit={{ rotateX: 92, rotateY: -18, scale: 0.65, opacity: 0.08 }}
+            transition={{
+              duration: rolling ? 0.1 : 0.16,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            {die}
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
+    </div>
   );
 }
