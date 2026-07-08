@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { actionHintTitle, ACTION_HINTS } from "@/lib/actionHints";
 import { playSound } from "@/lib/sound/SoundManager";
 import { ActionHintPopover, type HintAlign } from "./ActionHintPopover";
 
-const HINT_HOVER_DELAY_MS = 550;
+const HINT_HOVER_DELAY_MS = 850;
 
 export type ActionTileKind =
   | "build"
@@ -71,6 +71,11 @@ export function ActionTileButton({
     setHintOpen(false);
   }
 
+  function handleFocus(e: FocusEvent<HTMLButtonElement>) {
+    // Clicks focus the button but shouldn't surface the hover tip.
+    if (e.target.matches(":focus-visible")) scheduleHint();
+  }
+
   useEffect(() => () => clearHintTimer(), []);
 
   // Native title tooltips duplicate the custom popover on hover-capable devices.
@@ -90,9 +95,10 @@ export function ActionTileButton({
         whileTap={disabled ? undefined : { scale: 0.96 }}
         transition={{ type: "spring", stiffness: 500, damping: 25 }}
         disabled={disabled}
-        onFocus={() => setHintOpen(true)}
+        onFocus={handleFocus}
         onBlur={hideHint}
         onClick={() => {
+          hideHint();
           if (disabled) return;
           playSound("click");
           onClick();

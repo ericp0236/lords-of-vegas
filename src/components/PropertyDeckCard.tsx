@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   CASINOS,
   type CasinoColor,
@@ -36,37 +36,53 @@ function deckLabel(pays: PayTarget): string {
 
 export function PropertyCardFace({ card }: { card: PropertyCard }) {
   const isStrip = card.pays === "strip";
-  const bg = isStrip ? "var(--accent)" : CASINOS[card.pays as CasinoColor].hex;
-  const dark = isStrip ? "#a67c00" : CASINOS[card.pays as CasinoColor].darkHex;
-  const fg = isStrip ? "#1a1408" : CASINOS[card.pays as CasinoColor].textHex;
+  const casino = !isStrip ? CASINOS[card.pays as CasinoColor] : null;
+  const bg = isStrip ? "var(--accent)" : casino!.hex;
+  const dark = isStrip ? "#a67c00" : casino!.darkHex;
+  const fg = isStrip ? "#1a1408" : casino!.textHex;
   const label = deckLabel(card.pays);
 
   return (
     <div
-      className="deck-card-face"
+      className={`deck-card-face deck-card-face--${isStrip ? "strip" : card.pays}`}
       style={{
-        background: `linear-gradient(160deg, ${bg} 0%, ${dark} 100%)`,
-        color: fg,
-      }}
+        "--card-bg": bg,
+        "--card-dark": dark,
+        "--card-fg": fg,
+      } as CSSProperties}
     >
+      <span className="deck-card-face__corner deck-card-face__corner--tl" aria-hidden="true" />
+      <span className="deck-card-face__corner deck-card-face__corner--tr" aria-hidden="true" />
+      <span className="deck-card-face__corner deck-card-face__corner--bl" aria-hidden="true" />
+      <span className="deck-card-face__corner deck-card-face__corner--br" aria-hidden="true" />
+
       {card.isGameOver ? (
         <div className="deck-card-face__game-over">
+          <span className="deck-card-face__game-over-icon" aria-hidden="true">
+            ★
+          </span>
           <span className="deck-card-face__game-over-title">Game Over</span>
+          <span className="deck-card-face__game-over-sub">Final scoring</span>
         </div>
       ) : (
         <>
-          <span className="deck-card-face__lot">{card.lotId}</span>
-          <div className="deck-card-face__glyph-wrap">
-            <Image
-              src={CASINO_GLYPHS[card.pays]}
-              alt=""
-              width={72}
-              height={72}
-              className="deck-card-face__glyph"
-              aria-hidden
-            />
+          <div className="deck-card-face__body">
+            <span className="deck-card-face__lot">{card.lotId}</span>
+            <div className="deck-card-face__glyph-panel">
+              <Image
+                src={CASINO_GLYPHS[card.pays]}
+                alt=""
+                width={80}
+                height={80}
+                className="deck-card-face__glyph"
+                aria-hidden
+              />
+            </div>
           </div>
-          <span className="deck-card-face__pays">{label} pays</span>
+
+          <footer className="deck-card-face__footer">
+            <span className="deck-card-face__pays">{label} pays</span>
+          </footer>
         </>
       )}
     </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { type PayTarget, type PropertyCard } from "@/data/casinoCards";
 import type { GameState } from "@/engine/types";
-import { CARD_BACK, CASINO_GLYPHS, PropertyDeckCard } from "./PropertyDeckCard";
+import { PropertyDeckCard } from "./PropertyDeckCard";
 import { AnimatedNumber } from "./ui/AnimatedNumber";
 
 const ORDER: PayTarget[] = [
@@ -14,16 +13,6 @@ const ORDER: PayTarget[] = [
   "pioneer",
   "strip",
 ];
-
-/** Max discard slots shown per deck row (matches physical deck sizes). */
-const SLOT_COUNTS: Record<PayTarget, number> = {
-  albion: 9,
-  sphinx: 9,
-  vega: 9,
-  tivoli: 9,
-  pioneer: 9,
-  strip: 4,
-};
 
 const ROW_LABELS: Record<PayTarget, string> = {
   albion: "Albion",
@@ -68,7 +57,6 @@ export function DiscardPiles({
               key={deck}
               deck={deck}
               count={state.discard[deck]?.length ?? 0}
-              slots={SLOT_COUNTS[deck]}
             />
           ))}
         </div>
@@ -93,51 +81,29 @@ export function DiscardPiles({
   );
 }
 
-function DiscardRow({
-  deck,
-  count,
-  slots,
-}: {
-  deck: PayTarget;
-  count: number;
-  slots: number;
-}) {
+function DiscardRow({ deck, count }: { deck: PayTarget; count: number }) {
   const label = ROW_LABELS[deck];
   return (
     <div
       className={`discard-row discard-row--${deck}`}
       title={`${label}: ${count} discarded`}
     >
-      <div className="discard-row__icon-wrap">
-        <Image
-          src={CASINO_GLYPHS[deck]}
-          alt=""
-          width={40}
-          height={40}
-          className="discard-row__icon"
-          aria-hidden
-        />
-      </div>
       <span className="discard-row__name">{label}</span>
-      <div className="discard-row__slots" style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
-        {Array.from({ length: slots }, (_, i) => (
-          <div
-            key={i}
-            className={`discard-slot ${i < count ? "discard-slot--filled" : "discard-slot--empty"}`}
-          >
-            {i < count && (
-              <Image
-                src={CARD_BACK}
-                alt=""
-                width={24}
-                height={34}
-                className="discard-slot__card"
-                aria-hidden
-              />
-            )}
-          </div>
-        ))}
-      </div>
+      <DiscardCountBadge count={count} />
+    </div>
+  );
+}
+
+function DiscardCountBadge({ count }: { count: number }) {
+  return (
+    <div
+      className={`discard-count-badge${count === 0 ? " discard-count-badge--empty" : ""}`}
+      aria-label={`${count} cards discarded`}
+    >
+      <span className="discard-count-badge__back" aria-hidden="true" />
+      <span className="discard-count-badge__front" aria-hidden="true">
+        <AnimatedNumber value={count} />
+      </span>
     </div>
   );
 }

@@ -16,11 +16,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BOARD_LOTS, type LotId } from "@/data/boardLots";
-import {
-  CASINOS,
-  CASINO_COLOR_KEYS,
-  type CasinoColor,
-} from "@/data/casinoCards";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 import { casinoGroup, casinoPoints } from "@/engine/casinos";
 import { diceExhausted, parkingLots } from "@/engine/helpers";
@@ -43,6 +38,7 @@ import { useGameFeedback } from "@/lib/useGameFeedback";
 import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
 import type { useGame } from "@/lib/useGame";
 import { Board, type BoardOverlayDie } from "./Board";
+import { CasinoColorBar } from "./CasinoColorBar";
 import { HOUSE_DIE, RollingDie } from "./DieFace";
 import { DiscardPiles } from "./DiscardPiles";
 import { TilesLeftPanel } from "./TilesLeftPanel";
@@ -92,6 +88,8 @@ export function GamePlay({
   error: string | null;
 }) {
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const [wager, setWager] = useState(1);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [reorgDraft, setReorgDraft] = useState<ReorgDraft | null>(null);
@@ -193,10 +191,14 @@ export function GamePlay({
       switch (mode.kind) {
         case "build-lot":
           return new Set(buildTargets(state, meId));
+        case "build-color":
+          return new Set([mode.lotId]);
         case "sprawl-from":
           return new Set(sprawlFromTargets(state, meId));
         case "remodel-casino":
           return new Set(remodelTargets(state, meId));
+        case "remodel-color":
+          return new Set([mode.lotId]);
         case "raise-casino":
           return new Set(raiseTargets(state, meId));
         case "sprawl-to":
@@ -211,7 +213,11 @@ export function GamePlay({
           return new Set<LotId>();
       }
     })();
-    return { eligibleLots: lots, clickableLots: lots };
+    const clickableLots =
+      mode.kind === "build-color" || mode.kind === "remodel-color"
+        ? new Set<LotId>()
+        : lots;
+    return { eligibleLots: lots, clickableLots };
   }, [
     state,
     meId,
@@ -333,13 +339,13 @@ export function GamePlay({
       setSelectedReorgLot(selectedReorgLot === lotId ? null : lotId);
       return;
     }
-    switch (mode.kind) {
+    switch (modeRef.current.kind) {
       case "build-lot":
         return setMode({ kind: "build-color", lotId });
       case "sprawl-from":
         return setMode({ kind: "sprawl-to", fromLot: lotId });
       case "sprawl-to":
-        return sendAction({ type: "sprawl", fromLot: mode.fromLot, toLot: lotId });
+        return sendAction({ type: "sprawl", fromLot: modeRef.current.fromLot, toLot: lotId });
       case "remodel-casino":
         return setMode({ kind: "remodel-color", lotId });
       case "raise-casino":
@@ -350,7 +356,7 @@ export function GamePlay({
         setWager(1);
         return setMode({ kind: "gamble-wager", lotId });
       case "vacate-die": {
-        const withVacate = { ...mode.pending, vacateDieLot: lotId } as ActionCommand;
+        const withVacate = { ...modeRef.current.pending, vacateDieLot: lotId } as ActionCommand;
         return sendAction(withVacate);
       }
     }
@@ -359,7 +365,7 @@ export function GamePlay({
   // Stable identity so memoized board cells don't re-render on every
   // state snapshot; the ref always points at the latest closure.
   const lotClickRef = useRef(handleLotClick);
-  useEffect(() => {
+  useLayoutEffect(() => {
     lotClickRef.current = handleLotClick;
   });
   const onLotClick = useCallback((lotId: LotId) => lotClickRef.current(lotId), []);
@@ -385,6 +391,10 @@ export function GamePlay({
     switch (mode.kind) {
       case "build-lot":
         return "Tap one of your parking lots to build on.";
+      case "build-color":
+        return "Choose a casino color below.";
+      case "remodel-color":
+        return "Choose a new casino color below.";
       case "sprawl-from":
         return "Tap a casino you boss to sprawl from.";
       case "sprawl-to":
@@ -456,7 +466,7 @@ export function GamePlay({
           </Panel>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] gap-1.5">
           <Board
             state={state}
             eligibleLots={eligibleLots}
@@ -464,26 +474,74 @@ export function GamePlay({
             focusedLots={selectedReorgLot ? new Set([selectedReorgLot]) : undefined}
             overlayDice={boardOverlayDice}
             onLotClick={onLotClick}
-            className="min-h-0 min-w-0 flex-1"
+            className="min-h-0 min-w-0 overflow-hidden"
           />
 
-          {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && !inRollPhase && (
-            <ReorgPlacementBar
-              playerColor={me.color}
-              remaining={reorgDraft.remaining}
-              selectedIdx={selectedReorgIdx}
-              selectedLot={selectedReorgLot}
-              onSelectDie={handleReorgDieSelect}
-              complete={reorgComplete}
-              onConfirm={() =>
-                dispatch({
-                  type: "chooseReorgPlacement",
-                  playerId: meId,
-                  placements: reorgDraft.placements,
-                })
-              }
-            />
-          )}
+          <div className="relative z-20 min-h-0 overflow-hidden">
+            <AnimatePresence initial={false}>
+              {mode.kind === "build-color" && (
+                <motion.div
+                  key={`build-${mode.lotId}`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  className="overflow-hidden"
+                >
+                  <CasinoColorBar
+                    lotId={mode.lotId}
+                    action="build"
+                    priceLabel={`$${BOARD_LOTS[mode.lotId].price}M`}
+                    state={state}
+                    minTiles={1}
+                    onPick={(color) => sendAction({ type: "build", lotId: mode.lotId, color })}
+                    onClose={() => setMode({ kind: "idle" })}
+                  />
+                </motion.div>
+              )}
+              {mode.kind === "remodel-color" && (
+                <motion.div
+                  key={`remodel-${mode.lotId}`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  className="overflow-hidden"
+                >
+                  <CasinoColorBar
+                    lotId={mode.lotId}
+                    action="remodel"
+                    priceLabel="$5M/space"
+                    state={state}
+                    minTiles={casinoGroup(state.board, mode.lotId).length}
+                    exclude={state.board[mode.lotId].color ?? undefined}
+                    onPick={(color) =>
+                      sendAction({ type: "remodel", lotId: mode.lotId, newColor: color })
+                    }
+                    onClose={() => setMode({ kind: "idle" })}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && !inRollPhase && (
+              <ReorgPlacementBar
+                playerColor={me.color}
+                remaining={reorgDraft.remaining}
+                selectedIdx={selectedReorgIdx}
+                selectedLot={selectedReorgLot}
+                onSelectDie={handleReorgDieSelect}
+                complete={reorgComplete}
+                onConfirm={() =>
+                  dispatch({
+                    type: "chooseReorgPlacement",
+                    playerId: meId,
+                    placements: reorgDraft.placements,
+                  })
+                }
+              />
+            )}
+          </div>
 
           {/* -------------------------------------------- status strip (mobile: full action dock) */}
           <ActionDock
@@ -589,27 +647,6 @@ export function GamePlay({
 
       {/* ------------------------------------------------ modals */}
       <AnimatePresence>
-        {mode.kind === "build-color" && (
-          <ColorModal
-            key="build-color"
-            title={`Build on ${mode.lotId} ($${BOARD_LOTS[mode.lotId].price}M)`}
-            state={state}
-            minTiles={1}
-            onPick={(color) => sendAction({ type: "build", lotId: mode.lotId, color })}
-            onClose={() => setMode({ kind: "idle" })}
-          />
-        )}
-        {mode.kind === "remodel-color" && (
-          <ColorModal
-            key="remodel-color"
-            title={`Remodel the casino at ${mode.lotId} ($5M per space)`}
-            state={state}
-            minTiles={casinoGroup(state.board, mode.lotId).length}
-            exclude={state.board[mode.lotId].color ?? undefined}
-            onPick={(color) => sendAction({ type: "remodel", lotId: mode.lotId, newColor: color })}
-            onClose={() => setMode({ kind: "idle" })}
-          />
-        )}
         {mode.kind === "gamble-wager" && (
           <WagerModal
             key="gamble-wager"
@@ -731,15 +768,18 @@ function ActionDock({
     </Button>
   );
 
+  const actionHint = modeHint ?? (waitingOnOthers ? "Waiting for another player's choice…" : null);
+  const actionHintTone = modeHint ? "accent" : "pending";
+
   const sidebarActionGrid = showActions && (
-    <div className="grid grid-cols-3 gap-2">
-      {drawPhase ? (
-        <p className="col-span-3 rounded-md bg-[var(--accent)]/10 px-2 py-2 text-center text-[11px] font-medium text-[var(--accent)]">
-          Tap the deck to draw →
-        </p>
-      ) : (
-        <>
-          {ACTIONS.map((a, i) => (
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        {drawPhase ? (
+          <p className="col-span-3 rounded-md bg-[var(--accent)]/10 px-2 py-2 text-center text-[11px] font-medium text-[var(--accent)]">
+            Tap the deck to draw →
+          </p>
+        ) : (
+          ACTIONS.map((a, i) => (
             <ActionTileButton
               key={a.label}
               kind={ACTION_TILE_KIND[a.label]}
@@ -749,24 +789,44 @@ function ActionDock({
               hintAlign={i % 3 === 0 ? "start" : i % 3 === 2 ? "end" : "center"}
               onClick={() => setMode(isActionActive(a, mode) ? { kind: "idle" } : a.start)}
             />
-          ))}
-          {mode.kind !== "idle" && (
-            <ActionBarButton
-              variant="ghost"
-              sound="close"
-              onClick={() => setMode({ kind: "idle" })}
-              className="col-span-3"
-            >
-              Cancel
-            </ActionBarButton>
-          )}
-          <EndTurnButton
-            onClick={() => dispatch({ type: "endTurn" })}
-            className="col-span-3"
-          />
+          ))
+        )}
+      </div>
+
+      {!drawPhase && (
+        <>
+          <div className="action-dock-hint" aria-live="polite">
+            <AnimatePresence mode="wait">
+              {actionHint && (
+                <motion.p
+                  key={actionHint}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.14 }}
+                  className={`action-dock-hint__text action-dock-hint__text--${actionHintTone}`}
+                >
+                  {actionHint}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="action-dock-footer">
+            {mode.kind !== "idle" && (
+              <ActionBarButton
+                variant="ghost"
+                sound="close"
+                onClick={() => setMode({ kind: "idle" })}
+              >
+                Cancel
+              </ActionBarButton>
+            )}
+            <EndTurnButton onClick={() => dispatch({ type: "endTurn" })} />
+          </div>
         </>
       )}
-    </div>
+    </>
   );
 
   const bottomActionControls = showActions && (
@@ -783,21 +843,39 @@ function ActionDock({
     ) : (
       <>
         {ACTIONS.map((a) => renderActionButton(a, "min-h-[36px]"))}
-        {mode.kind !== "idle" && (
-          <Button
-            variant="ghost"
-            size="sm"
-            sound="close"
-            onClick={() => setMode({ kind: "idle" })}
-            className="min-h-[36px]"
-          >
-            Cancel
-          </Button>
-        )}
-        <EndTurnButton
-          onClick={() => dispatch({ type: "endTurn" })}
-          className="min-h-[40px] basis-full"
-        />
+        <div className="action-dock-hint action-dock-hint--compact w-full" aria-live="polite">
+          <AnimatePresence mode="wait">
+            {actionHint && (
+              <motion.p
+                key={actionHint}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.14 }}
+                className={`action-dock-hint__text action-dock-hint__text--${actionHintTone}`}
+              >
+                {actionHint}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+        <div className="action-dock-footer action-dock-footer--inline w-full">
+          {mode.kind !== "idle" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              sound="close"
+              onClick={() => setMode({ kind: "idle" })}
+              className="min-h-[36px]"
+            >
+              Cancel
+            </Button>
+          )}
+          <EndTurnButton
+            onClick={() => dispatch({ type: "endTurn" })}
+            className="min-h-[40px] flex-1"
+          />
+        </div>
       </>
     )
   );
@@ -813,32 +891,13 @@ function ActionDock({
         }`}
         bodyClassName="space-y-2"
       >
-        <AnimatePresence mode="wait">
-          {(modeHint || waitingOnOthers) && (
-            <motion.p
-              key={modeHint ?? "waiting"}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.16 }}
-              className={`rounded-md px-2 py-1 text-xs font-medium ${
-                modeHint
-                  ? "bg-[var(--accent)]/12 text-[var(--accent)]"
-                  : "bg-purple-500/10 text-purple-300"
-              }`}
-            >
-              {modeHint ?? "Waiting for another player's choice…"}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
         {waitingLabel && (
           <div className="flex flex-wrap items-center gap-2">{waitingLabel}</div>
         )}
 
         {sidebarActionGrid}
 
-        {isMyTurn && myPendingChoice && (
+        {isMyTurn && myPendingChoice && !actionHint && (
           <p className="text-xs font-semibold text-[var(--accent)]">Choose on the board →</p>
         )}
       </Panel>
@@ -853,25 +912,6 @@ function ActionDock({
           : "border-[var(--border)] bg-[var(--surface)]"
       }`}
     >
-      <AnimatePresence mode="wait">
-        {(modeHint || waitingOnOthers) && (
-          <motion.p
-            key={modeHint ?? "waiting"}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.16 }}
-            className={`mb-1.5 rounded-md px-2 py-1 text-xs font-medium ${
-              modeHint
-                ? "bg-[var(--accent)]/12 text-[var(--accent)]"
-                : "bg-purple-500/10 text-purple-300"
-            }`}
-          >
-            {modeHint ?? "Waiting for another player's choice…"}
-          </motion.p>
-        )}
-      </AnimatePresence>
-
       <div className="flex flex-wrap items-center gap-1.5">
         {waitingLabel && (
           <div className="flex items-center gap-2">{waitingLabel}</div>
@@ -881,7 +921,7 @@ function ActionDock({
           <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5">{bottomActionControls}</div>
         )}
 
-        {isMyTurn && myPendingChoice && (
+        {isMyTurn && myPendingChoice && !actionHint && (
           <span className="ml-auto text-xs font-semibold text-[var(--accent)]">
             Choose on the board ↑
           </span>
@@ -1059,52 +1099,6 @@ function GambleResultOverlay({ log }: { log: LogEvent[] }) {
 // ---------------------------------------------------------------------------
 // Modals
 // ---------------------------------------------------------------------------
-
-function ColorModal({
-  title,
-  state,
-  minTiles,
-  exclude,
-  onPick,
-  onClose,
-}: {
-  title: string;
-  state: GameState;
-  minTiles: number;
-  exclude?: CasinoColor;
-  onPick: (color: CasinoColor) => void;
-  onClose: () => void;
-}) {
-  return (
-    <Modal onClose={onClose} title={title}>
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        {CASINO_COLOR_KEYS.map((c, i) => {
-          const supply = state.tileSupply[c];
-          const disabled = c === exclude || supply < minTiles;
-          return (
-            <motion.button
-              key={c}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.045 }}
-              whileTap={disabled ? undefined : { scale: 0.97 }}
-              disabled={disabled}
-              onClick={() => {
-                playSound("chip");
-                onPick(c);
-              }}
-              className="focus-ring flex min-h-[44px] items-center justify-between rounded-lg px-3 py-2 text-sm font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-30"
-              style={{ background: `linear-gradient(160deg, ${CASINOS[c].hex}, ${CASINOS[c].darkHex})`, color: CASINOS[c].textHex }}
-            >
-              {CASINOS[c].name}
-              <span className="text-xs opacity-80">{supply} tiles left</span>
-            </motion.button>
-          );
-        })}
-      </div>
-    </Modal>
-  );
-}
 
 function WagerModal({
   state,
