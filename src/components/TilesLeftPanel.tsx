@@ -3,6 +3,7 @@
 import { CASINOS, CASINO_COLOR_KEYS, TILES_PER_COLOR, type CasinoColor } from "@/data/casinoCards";
 import type { GameState } from "@/engine/types";
 import { AnimatedNumber } from "./ui/AnimatedNumber";
+import { Panel } from "./ui/Panel";
 
 export function TilesLeftPanel({
   state,
@@ -12,32 +13,20 @@ export function TilesLeftPanel({
   className?: string;
 }) {
   return (
-    <section className={`tiles-left-panel ${className}`} aria-label="Tiles left">
-      <div className="tiles-left-panel__surface">
-        <header className="tiles-left-panel__header">
-          <span className="tiles-left-panel__ornament" aria-hidden="true">
-            ◆
-          </span>
-          <h2 className="tiles-left-panel__title">Tiles Left</h2>
-          <span className="tiles-left-panel__ornament" aria-hidden="true">
-            ◆
-          </span>
-        </header>
+    <Panel title="Tiles Left" className={className} bodyClassName="p-0 pt-0">
+      <ul className="tiles-left-panel__rows">
+        {CASINO_COLOR_KEYS.map((key) => (
+          <TileSupplyRow key={key} casino={key} remaining={state.tileSupply[key]} />
+        ))}
+      </ul>
 
-        <ul className="tiles-left-panel__rows">
-          {CASINO_COLOR_KEYS.map((key) => (
-            <TileSupplyRow key={key} casino={key} remaining={state.tileSupply[key]} />
-          ))}
-        </ul>
-
-        <footer className="tiles-left-panel__footer">
-          <span className="tiles-left-panel__footer-icon" aria-hidden="true">
-            ◆
-          </span>
-          Higher numbers mean more tiles remaining
-        </footer>
-      </div>
-    </section>
+      <footer className="tiles-left-panel__footer">
+        <span className="tiles-left-panel__footer-icon" aria-hidden="true">
+          ◆
+        </span>
+        Higher numbers mean more tiles remaining
+      </footer>
+    </Panel>
   );
 }
 
