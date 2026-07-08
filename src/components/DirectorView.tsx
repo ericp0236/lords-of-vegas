@@ -96,7 +96,7 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
 
   return (
     <main
-      className="relative mx-auto flex h-screen max-h-screen w-full flex-col gap-1.5 overflow-hidden p-2 sm:p-3"
+      className="city-backdrop relative mx-auto flex h-screen max-h-screen w-full flex-col gap-1.5 overflow-hidden p-2 sm:p-3"
       style={{ aspectRatio: "16 / 9", maxWidth: "calc(100vh * 16 / 9)" }}
       onMouseMove={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}

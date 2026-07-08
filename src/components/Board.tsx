@@ -390,7 +390,9 @@ function Street({ name, connect }: { name: string; connect?: "strip-left" | "str
       }`}
     >
       <div className="board-street__centerline" aria-hidden="true" />
+      <span className="board-street__palm board-street__palm--left" aria-hidden="true" />
       <span className="board-street__label neon-flicker">{name}</span>
+      <span className="board-street__palm board-street__palm--right" aria-hidden="true" />
     </div>
   );
 }
@@ -424,7 +426,7 @@ export function Board({
   return (
     <div className={`flex min-h-0 items-center justify-center ${className}`}>
       <div
-        className="felt gold-rail grid h-full max-h-full w-auto max-w-full grid-cols-[3fr_0.65fr_3fr] overflow-visible rounded-xl p-2"
+        className="board-vegas gold-rail grid h-full max-h-full w-auto max-w-full grid-cols-[3fr_0.65fr_3fr] overflow-visible rounded-xl p-2"
         style={{ aspectRatio: "6.65 / 8.7" }}
       >
         {/* Left column: A (2 rows), C (4 rows), E (2 rows) */}
@@ -466,7 +468,8 @@ export function Board({
           />
         </div>
         {/* The Strip */}
-        <div className="relative z-0 flex min-h-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-b from-[#12172a] via-[#1a2138] to-[#12172a] shadow-[inset_0_0_14px_rgba(0,0,0,0.55)]">
+        <div className="strip-column relative z-0 flex min-h-0 items-center justify-center overflow-hidden rounded-md">
+          <span className="strip-column__lights strip-column__lights--left" aria-hidden="true" />
           <div
             className="strip-neon absolute inset-y-2 left-1/2 w-px -translate-x-1/2"
             style={{
@@ -475,15 +478,8 @@ export function Board({
               opacity: 0.85,
             }}
           />
-          <span
-            className="neon-flicker rotate-180 text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--accent)]"
-            style={{
-              writingMode: "vertical-rl",
-              textShadow: "0 0 8px rgba(245,197,66,0.8), 0 0 20px rgba(245,197,66,0.4)",
-            }}
-          >
-            The Strip
-          </span>
+          <span className="strip-column__label neon-flicker">The Strip</span>
+          <span className="strip-column__lights strip-column__lights--right" aria-hidden="true" />
         </div>
         {/* Right column: B (2 rows), D (3 rows), F (3 rows) */}
         <div className="z-10 grid min-h-0 grid-rows-[2fr_0.35fr_3fr_0.35fr_3fr]">

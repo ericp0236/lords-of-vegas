@@ -14,13 +14,14 @@ import { AnimatedNumber } from "./ui/AnimatedNumber";
 
 export const CARD_BACK = "/cards/card-back.png";
 
-export const CASINO_GLYPHS: Record<PayTarget, string> = {
-  albion: "/casinos/glyphs/albion.png",
-  sphinx: "/casinos/glyphs/sphinx.png",
-  vega: "/casinos/glyphs/vega.png",
-  tivoli: "/casinos/glyphs/tivoli.png",
-  pioneer: "/casinos/glyphs/pioneer.png",
-  strip: "/casinos/glyphs/strip.png",
+/** Night-time building illustrations shown on drawn property cards. */
+export const CASINO_CARD_ART: Record<PayTarget, string> = {
+  albion: "/art/cards/albion.webp",
+  sphinx: "/art/cards/sphinx.webp",
+  vega: "/art/cards/vega.webp",
+  tivoli: "/art/cards/tivoli.webp",
+  pioneer: "/art/cards/pioneer.webp",
+  strip: "/art/cards/strip.webp",
 };
 
 const FLIP_TRANSITION = { duration: 0.38, ease: [0.4, 0, 0.2, 1] as const };
@@ -68,13 +69,13 @@ export function PropertyCardFace({ card }: { card: PropertyCard }) {
         <>
           <div className="deck-card-face__body">
             <span className="deck-card-face__lot">{card.lotId}</span>
-            <div className="deck-card-face__glyph-panel">
+            <div className="deck-card-face__glyph-panel deck-card-face__glyph-panel--art">
               <Image
-                src={CASINO_GLYPHS[card.pays]}
+                src={CASINO_CARD_ART[card.pays]}
                 alt=""
-                width={80}
-                height={80}
-                className="deck-card-face__glyph"
+                fill
+                sizes="200px"
+                className="deck-card-face__art"
                 aria-hidden
               />
             </div>

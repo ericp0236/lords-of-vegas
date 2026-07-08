@@ -9,13 +9,6 @@
     "higgsfield": {
       "url": "https://mcp.higgsfield.ai/mcp"
     },
-    "ludo-ai": {
-      "url": "https://mcp.ludo.ai/mcp",
-      "envFile": "${workspaceFolder}/.cursor/mcp-servers/ludo-ai/.env",
-      "headers": {
-        "Authentication": "ApiKey ${env:LUDO_API_KEY}"
-      }
-    },
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest"]

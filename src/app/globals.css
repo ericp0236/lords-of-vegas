@@ -47,6 +47,24 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Neon city photo backdrop, heavily darkened so panels stay readable. */
+.city-backdrop {
+  position: relative;
+  isolation: isolate;
+}
+
+.city-backdrop::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(8, 8, 18, 0.86) 0%, rgba(10, 10, 22, 0.76) 45%, rgba(8, 8, 18, 0.88) 100%),
+    url("/art/city-backdrop.webp") center / cover no-repeat,
+    var(--background);
+  pointer-events: none;
+}
+
 /* ------------------------------------------------------------------ type */
 
 /* Vegas marquee lettering: gold gradient + soft neon halo */
@@ -86,6 +104,111 @@ body {
     radial-gradient(ellipse 120% 90% at 50% 20%, rgba(255, 255, 255, 0.045), transparent 60%),
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 4px),
     linear-gradient(165deg, var(--felt) 0%, var(--felt-dark) 100%);
+}
+
+/* Ornate gold panel chrome — thin double gold frame over a dark surface,
+   matching the concept mock's sidebar panels. */
+.panel-ornate {
+  position: relative;
+  border: 1px solid rgba(212, 167, 44, 0.5);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(245, 197, 66, 0.05), transparent 55%),
+    linear-gradient(180deg, rgba(24, 22, 34, 0.92) 0%, rgba(13, 12, 22, 0.94) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 6px 22px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(245, 197, 66, 0.06),
+    inset 0 1px 0 rgba(255, 233, 163, 0.1);
+}
+
+.panel-ornate::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 9px;
+  border: 1px solid rgba(212, 167, 44, 0.18);
+  pointer-events: none;
+}
+
+/* Centered gold header with diamond ornaments: ◆ TITLE ◆ */
+.panel-ornate__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 10px 5px;
+}
+
+.panel-ornate__diamond {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  rotate: 45deg;
+  background: linear-gradient(135deg, #fff3c4 0%, var(--accent) 100%);
+  box-shadow: 0 0 6px rgba(245, 197, 66, 0.5);
+}
+
+.panel-ornate__title {
+  font-family: var(--font-display), var(--font-geist-sans), serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  background: linear-gradient(180deg, #fff3c4 0%, var(--accent) 55%, var(--accent-deep) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+  white-space: nowrap;
+}
+
+.panel-ornate__rule {
+  height: 1px;
+  min-width: 8px;
+  flex: 1 1 0;
+  background: linear-gradient(90deg, transparent, rgba(212, 167, 44, 0.4));
+}
+
+.panel-ornate__rule--end {
+  background: linear-gradient(90deg, rgba(212, 167, 44, 0.4), transparent);
+}
+
+/* Gold marquee frame for the YOUR TURN banner in the header. */
+.turn-marquee {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 22px;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
+  background:
+    linear-gradient(180deg, rgba(50, 20, 26, 0.95) 0%, rgba(28, 10, 16, 0.98) 100%);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(212, 167, 44, 0.75),
+    inset 0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.turn-marquee__label {
+  font-family: var(--font-display), var(--font-geist-sans), serif;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff3c4 0%, var(--accent) 55%, var(--accent-deep) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 8px rgba(245, 197, 66, 0.45));
+  white-space: nowrap;
+}
+
+.turn-marquee__die {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(245, 197, 66, 0.55));
 }
 
 /* Gold-trimmed edge, like a card table rail */
@@ -239,6 +362,7 @@ body {
 .casino-tile--art {
   overflow: hidden;
   border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(212, 167, 44, 0.4);
 }
 
 @keyframes parkingEligiblePulse {
@@ -258,15 +382,95 @@ body {
     0 0 18px rgba(245, 197, 66, 0.35);
 }
 
+/* Night-city board surface — dark asphalt blocks framed in gold, replacing
+   the old green felt. */
+.board-vegas {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(245, 197, 66, 0.045), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 50% 105%, rgba(236, 72, 153, 0.05), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.008) 0 2px, transparent 2px 5px),
+    linear-gradient(170deg, #191b28 0%, #12141f 55%, #0d0f18 100%);
+}
+
+/* The Strip column — pink-washed night boulevard per the mock. */
+.strip-column {
+  background:
+    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(236, 72, 153, 0.16), transparent 70%),
+    radial-gradient(ellipse 100% 40% at 50% 100%, rgba(236, 72, 153, 0.16), transparent 70%),
+    linear-gradient(180deg, #241428 0%, #2e1a34 50%, #241428 100%);
+  box-shadow:
+    inset 0 0 14px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(236, 72, 153, 0.22);
+}
+
+.strip-column__label {
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: #ff8ac2;
+  text-shadow:
+    0 0 8px rgba(236, 72, 153, 0.85),
+    0 0 22px rgba(236, 72, 153, 0.45);
+}
+
+.strip-column__lights {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(245, 197, 66, 0.9) 0 3px,
+    transparent 3px 14px
+  );
+  box-shadow: 0 0 5px rgba(245, 197, 66, 0.6);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.strip-column__lights--left {
+  left: 3px;
+}
+
+.strip-column__lights--right {
+  right: 3px;
+}
+
+/* Palm sprites flanking street label signs. */
+.board-street__palm {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  height: 200%;
+  aspect-ratio: 1;
+  translate: 0 -50%;
+  background: url("/art/palm.webp") center / contain no-repeat;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.board-street__palm--left {
+  left: 1.5%;
+}
+
+.board-street__palm--right {
+  right: 1.5%;
+}
+
 /* Horizontal cross-streets — asphalt + neon lane markings like The Strip */
 .board-street {
   position: relative;
   overflow: hidden;
   border-radius: 4px;
-  background: linear-gradient(180deg, #12172a 0%, #1a2138 52%, #12172a 100%);
+  background: linear-gradient(180deg, #171522 0%, #201d2e 52%, #171522 100%);
   box-shadow:
     inset 0 0 12px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(245, 197, 66, 0.08),
+    inset 0 -1px 0 rgba(245, 197, 66, 0.08);
 }
 
 .board-street::before,
@@ -310,16 +514,17 @@ body {
   position: relative;
   z-index: 1;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.42);
-  padding: 1px 7px;
+  border: 1px solid rgba(255, 105, 180, 0.28);
+  background: rgba(20, 6, 14, 0.65);
+  padding: 1px 8px;
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgba(245, 197, 66, 0.88);
+  color: #ff8ac2;
   text-shadow:
-    0 0 8px rgba(245, 197, 66, 0.55),
-    0 0 16px rgba(245, 197, 66, 0.25);
+    0 0 8px rgba(236, 72, 153, 0.7),
+    0 0 16px rgba(236, 72, 153, 0.32);
 }
 
 /* Extend cross-streets into The Strip column (0.65fr vs 3fr side columns). */
@@ -336,10 +541,11 @@ body {
   top: 0;
   bottom: 0;
   width: calc(100% * 0.65 / 3);
-  background: linear-gradient(180deg, #12172a 0%, #1a2138 52%, #12172a 100%);
+  background: linear-gradient(180deg, #171522 0%, #201d2e 52%, #171522 100%);
   box-shadow:
     inset 0 0 12px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(245, 197, 66, 0.08),
+    inset 0 -1px 0 rgba(245, 197, 66, 0.08);
   pointer-events: none;
 }
 
@@ -1561,6 +1767,27 @@ body {
   max-width: 100px;
   object-fit: contain;
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+}
+
+/* Card body variant that shows the casino's night illustration edge to edge. */
+.deck-card-face__glyph-panel--art {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border-color: rgba(255, 233, 163, 0.3);
+}
+
+.deck-card-face__art {
+  object-fit: cover;
+}
+
+.deck-card-face__glyph-panel--art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
 }
 
 .deck-card-face__footer {

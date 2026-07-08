@@ -1,6 +1,7 @@
 /**
  * Shared surface panel with an optional uppercase heading — keeps every
- * sidebar/dock section visually consistent.
+ * sidebar/dock section visually consistent. Ornate gold chrome with a
+ * centered diamond-flanked title, per the Vegas concept mock.
  */
 
 export function Panel({
@@ -19,22 +20,22 @@ export function Panel({
   actions?: React.ReactNode;
 }) {
   return (
-    <section
-      className={`rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${className}`}
-    >
+    <section className={`panel-ornate ${className}`}>
       {(title || actions) && (
-        <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+        <div className="panel-ornate__header">
           {title && (
-            <h2
-              className={`text-[10px] font-bold uppercase tracking-[0.14em] text-muted ${titleClassName}`}
-            >
-              {title}
-            </h2>
+            <>
+              <span className="panel-ornate__rule" aria-hidden />
+              <span className="panel-ornate__diamond" aria-hidden />
+              <h2 className={`panel-ornate__title ${titleClassName}`}>{title}</h2>
+              <span className="panel-ornate__diamond" aria-hidden />
+              <span className="panel-ornate__rule panel-ornate__rule--end" aria-hidden />
+            </>
           )}
-          {actions}
+          {actions && <div className="ml-auto flex shrink-0 items-center gap-1.5">{actions}</div>}
         </div>
       )}
-      <div className={`p-2.5 ${title || actions ? "pt-1.5" : ""} ${bodyClassName}`}>{children}</div>
+      <div className={`p-2.5 ${title || actions ? "pt-1" : ""} ${bodyClassName}`}>{children}</div>
     </section>
   );
 }

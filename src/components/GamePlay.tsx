@@ -418,7 +418,7 @@ export function GamePlay({
     pending && !myPendingRemoveDie && !myPendingVacateLot && !myPendingReorg;
 
   return (
-    <main className="mx-auto flex h-dvh max-h-dvh w-full max-w-[1600px] flex-col gap-1.5 overflow-hidden px-2 pb-2 pt-1.5 sm:px-3">
+    <main className="city-backdrop mx-auto flex h-dvh max-h-dvh w-full max-w-[1600px] flex-col gap-1.5 overflow-hidden px-2 pb-2 pt-1.5 sm:px-3">
       {/* ------------------------------------------------ header */}
       <header className="relative flex shrink-0 items-center gap-2.5">
         {isMyTurn && state.phase === "playing" && <YourTurnBadge color={me.color} />}
@@ -968,15 +968,21 @@ function ActionDock({
 function YourTurnBadge({ color }: { color: keyof typeof PLAYER_COLORS }) {
   const meta = PLAYER_COLORS[color];
   return (
-    <span
-      className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold shadow-lg"
-      style={{ background: meta.hex, color: meta.textHex }}
-    >
-      <span className="relative flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white/90" />
+    <span className="turn-marquee absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <span className="turn-marquee__die" aria-hidden>
+        ⚄
       </span>
-      Your turn
+      <span className="turn-marquee__label">Your Turn</span>
+      <span
+        className="relative flex h-1.5 w-1.5 shrink-0"
+        title={`Player color: ${color}`}
+      >
+        <span
+          className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+          style={{ background: meta.hex }}
+        />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: meta.hex }} />
+      </span>
     </span>
   );
 }
