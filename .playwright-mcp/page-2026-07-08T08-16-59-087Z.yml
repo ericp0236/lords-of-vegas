@@ -1,0 +1,10 @@
+- generic [active] [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e33] [cursor=pointer]:
+    - img [ref=f1e34]
+  - alert [ref=f1e37]
+  - main [ref=f1e44]:
+    - heading "Reconnect to ZTST" [level=1] [ref=f1e45]
+    - paragraph [ref=f1e46]: The game is in progress. Enter your player name to resume.
+    - generic [ref=f1e47]:
+      - textbox "Your player name" [ref=f1e48]
+      - button "Resume playing" [ref=f1e49]

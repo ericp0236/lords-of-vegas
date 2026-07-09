@@ -1,0 +1,28 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - heading "Lords of Vegas" [level=1] [ref=f1e4]
+      - paragraph [ref=f1e5]: Build casinos. Boss the Strip. 3–6 remote players, plus a Spectator view for recording.
+    - generic [ref=f1e6]:
+      - generic [ref=f1e7]:
+        - button "Host a table" [ref=f1e8]: Host a table
+        - button "Join" [ref=f1e10]
+        - button "Spectator" [ref=f1e11]
+      - generic [ref=f1e13]:
+        - generic [ref=f1e14]:
+          - generic [ref=f1e15]: Your name
+          - textbox "Your name" [ref=f1e16]:
+            - /placeholder: e.g. Sam
+        - generic [ref=f1e17]:
+          - generic [ref=f1e18]: Your color
+          - generic [ref=f1e19]:
+            - button "Black" [ref=f1e20]
+            - button "Blue" [ref=f1e21]
+            - button "Green" [ref=f1e22]
+            - button "Purple" [ref=f1e23]
+            - button "Red" [ref=f1e24]
+            - button "Yellow" [ref=f1e25]
+        - button "Open the table" [ref=f1e26]
+  - button "Open Next.js Dev Tools" [ref=f1e33] [cursor=pointer]:
+    - img [ref=f1e34]
+  - alert [ref=f1e37]

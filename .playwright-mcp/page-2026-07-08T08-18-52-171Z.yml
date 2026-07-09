@@ -1,0 +1,725 @@
+- generic [active] [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e33] [cursor=pointer]:
+    - img [ref=f1e34]
+  - alert [ref=f1e37]
+  - main [ref=f1e50]:
+    - generic [ref=f1e51]:
+      - generic [ref=f1e52]:
+        - generic [ref=f1e53]: ⚄
+        - generic [ref=f1e54]: Your Turn
+        - 'generic "Player color: blue" [ref=f1e55]'
+      - heading "Lords of Vegas" [level=1] [ref=f1e58]
+      - generic [ref=f1e59]: ZTST
+      - generic [ref=f1e60]: Turn 6
+      - generic [ref=f1e61]:
+        - button "Mute sounds" [ref=f1e62]:
+          - img [ref=f1e63]
+        - link "Spectator ↗" [ref=f1e67] [cursor=pointer]:
+          - /url: /director/ZTST
+    - generic [ref=f1e68]:
+      - complementary [ref=f1e69]:
+        - region "Score track" [ref=f1e70]:
+          - generic [ref=f1e71]:
+            - generic "Start (0 points)" [ref=f1e72]:
+              - generic [ref=f1e73]: "0"
+              - 'img "Eric: 0 pts" [ref=f1e76]'
+            - 'generic "1 points (next: 2)" [ref=f1e79]':
+              - generic [ref=f1e80]: "1"
+              - generic [ref=f1e81]:
+                - 'img "Ana: 1 pts" [ref=f1e83]'
+                - 'img "Leo: 1 pts" [ref=f1e768]'
+            - 'generic "2 points (next: 3)" [ref=f1e84]':
+              - generic [ref=f1e85]: "2"
+            - 'generic "3 points (next: 4)" [ref=f1e86]':
+              - generic [ref=f1e87]: "3"
+            - 'generic "4 points (next: 5)" [ref=f1e88]':
+              - generic [ref=f1e89]: "4"
+            - 'generic "5 points (next: 6)" [ref=f1e90]':
+              - generic [ref=f1e91]: "5"
+            - 'generic "6 points (next: 7)" [ref=f1e92]':
+              - generic [ref=f1e93]: "6"
+            - 'generic "7 points (next: 8)" [ref=f1e94]':
+              - generic [ref=f1e95]: "7"
+            - 'generic "8 points (next: 9)" [ref=f1e96]':
+              - generic [ref=f1e97]: "8"
+            - 'generic "9 points (next: 10)" [ref=f1e98]':
+              - generic [ref=f1e99]: "9"
+            - 'generic "10 points (next: 12)" [ref=f1e100]':
+              - generic [ref=f1e101]: "10"
+            - 'generic "12 pts — 2-point tier (next: 14)" [ref=f1e102]':
+              - generic [ref=f1e103]: "12"
+            - 'generic "14 pts — 2-point tier (next: 16)" [ref=f1e104]':
+              - generic [ref=f1e105]: "14"
+            - 'generic "16 pts — 2-point tier (next: 18)" [ref=f1e106]':
+              - generic [ref=f1e107]: "16"
+            - 'generic "18 pts — 2-point tier (next: 20)" [ref=f1e108]':
+              - generic [ref=f1e109]: "18"
+            - 'generic "20 pts — 2-point tier (next: 23)" [ref=f1e110]':
+              - generic [ref=f1e111]: "20"
+            - 'generic "23 pts — 3-point tier (next: 26)" [ref=f1e112]':
+              - generic [ref=f1e113]: "23"
+            - 'generic "26 pts — 3-point tier (next: 29)" [ref=f1e114]':
+              - generic [ref=f1e115]: "26"
+            - 'generic "29 pts — 3-point tier (next: 32)" [ref=f1e116]':
+              - generic [ref=f1e117]: "29"
+            - 'generic "32 pts — 3-point tier (next: 36)" [ref=f1e118]':
+              - generic [ref=f1e119]: "32"
+            - 'generic "36 pts — 4-point tier (next: 40)" [ref=f1e120]':
+              - generic [ref=f1e121]: "36"
+            - 'generic "40 pts — 4-point tier (next: 44)" [ref=f1e122]':
+              - generic [ref=f1e123]: "40"
+            - 'generic "44 pts — 4-point tier (next: 49)" [ref=f1e124]':
+              - generic [ref=f1e125]: "44"
+            - 'generic "49 pts — 5-point tier (next: 54)" [ref=f1e126]':
+              - generic [ref=f1e127]: "49"
+            - 'generic "54 pts — 5-point tier (next: 60)" [ref=f1e128]':
+              - generic [ref=f1e129]: "54"
+            - 'generic "60 pts — 6-point tier (next: 66)" [ref=f1e130]':
+              - generic [ref=f1e131]: "60"
+            - 'generic "66 pts — 6-point tier (next: 73)" [ref=f1e132]':
+              - generic [ref=f1e133]: "66"
+            - 'generic "73 pts — 7-point tier (next: 81)" [ref=f1e134]':
+              - generic [ref=f1e135]: "73"
+            - 'generic "81 pts — 8-point tier (next: 90)" [ref=f1e136]':
+              - generic [ref=f1e137]: "81"
+            - generic "90 — jackpot" [ref=f1e138]:
+              - generic [ref=f1e139]:
+                - text: "90"
+                - generic [ref=f1e140]: jackpot
+      - complementary [ref=f1e141]:
+        - generic [ref=f1e142]:
+          - heading "Standings" [level=2] [ref=f1e146]
+          - table [ref=f1e151]:
+            - rowgroup [ref=f1e152]:
+              - row "Player Pts $ Dice left Lot markers left" [ref=f1e153]:
+                - columnheader "Player" [ref=f1e154]
+                - columnheader "Pts" [ref=f1e155]
+                - columnheader "$" [ref=f1e156]
+                - columnheader "Dice left" [ref=f1e157]:
+                  - generic [ref=f1e158]: Dice left
+                  - img [ref=f1e159]
+                - columnheader "Lot markers left" [ref=f1e163]:
+                  - generic [ref=f1e164]: Lot markers left
+            - rowgroup [ref=f1e166]:
+              - row "Eric ·you 0 $11M +$3M 11 7" [ref=f1e769]:
+                - cell "Eric ·you" [ref=f1e168]:
+                  - generic [ref=f1e173]: Eric ·you
+                - cell "0" [ref=f1e174]
+                - cell "$11M +$3M" [ref=f1e770]:
+                  - generic [ref=f1e176]:
+                    - text: $11M
+                    - generic: +$3M
+                - cell "11" [ref=f1e177]
+                - cell "7" [ref=f1e771]
+              - row "Ana 1 $4M +$1M 9 9" [ref=f1e772]:
+                - cell "Ana" [ref=f1e180]:
+                  - generic [ref=f1e184]: Ana
+                - cell "1" [ref=f1e185]
+                - cell "$4M +$1M" [ref=f1e773]:
+                  - generic [ref=f1e187]:
+                    - text: $4M
+                    - generic: +$1M
+                - cell "9" [ref=f1e188]
+                - cell "9" [ref=f1e189]
+              - row "Leo 1 $6M +$4M 10 8" [ref=f1e774]:
+                - cell "Leo" [ref=f1e191]:
+                  - generic [ref=f1e195]: Leo
+                - cell "1" [ref=f1e775]
+                - cell "$6M +$4M" [ref=f1e776]:
+                  - generic [ref=f1e198]:
+                    - text: $6M
+                    - generic: +$4M
+                - cell "10" [ref=f1e199]
+                - cell "8" [ref=f1e200]
+        - region "Tiles left" [ref=f1e201]:
+          - generic [ref=f1e202]:
+            - generic [ref=f1e203]:
+              - generic [ref=f1e204]: ◆
+              - heading "Tiles Left" [level=2] [ref=f1e205]
+              - generic [ref=f1e206]: ◆
+            - list [ref=f1e207]:
+              - 'listitem "Albion: 7 tiles left" [ref=f1e208]':
+                - img [ref=f1e210]
+                - generic [ref=f1e214]:
+                  - generic [ref=f1e215]: Albion
+                  - generic [ref=f1e216]: Royal Empire
+                - generic [ref=f1e228]: "7"
+              - 'listitem "Sphinx: 8 tiles left" [ref=f1e229]':
+                - img [ref=f1e231]
+                - generic [ref=f1e236]:
+                  - generic [ref=f1e237]: Sphinx
+                  - generic [ref=f1e238]: Desert Crown
+                - generic [ref=f1e250]: "8"
+              - 'listitem "Vega: 8 tiles left" [ref=f1e251]':
+                - img [ref=f1e253]
+                - generic [ref=f1e255]:
+                  - generic [ref=f1e256]: Vega
+                  - generic [ref=f1e257]: Star Alliance
+                - generic [ref=f1e269]: "8"
+              - 'listitem "Tivoli: 8 tiles left" [ref=f1e270]':
+                - img [ref=f1e272]
+                - generic [ref=f1e276]:
+                  - generic [ref=f1e277]: Tivoli
+                  - generic [ref=f1e278]: Grand Arcade
+                - generic [ref=f1e290]: "8"
+              - 'listitem "Pioneer: 8 tiles left" [ref=f1e291]':
+                - img [ref=f1e293]
+                - generic [ref=f1e298]:
+                  - generic [ref=f1e299]: Pioneer
+                  - generic [ref=f1e300]: Frontier Line
+                - generic [ref=f1e312]: "8"
+            - generic [ref=f1e313]:
+              - generic [ref=f1e314]: ◆
+              - text: Higher numbers mean more tiles remaining
+        - generic [ref=f1e315]:
+          - heading "Game log" [level=2] [ref=f1e319]
+          - generic [ref=f1e323]:
+            - generic [ref=f1e324]:
+              - generic [ref=f1e325]: T0
+              - generic [ref=f1e326]: Eric starts with parking lots E3 & C7 and $13M.
+            - generic [ref=f1e327]:
+              - generic [ref=f1e328]: T0
+              - generic [ref=f1e329]: Ana starts with parking lots D2 & B6 and $13M.
+            - generic [ref=f1e330]:
+              - generic [ref=f1e331]: T0
+              - generic [ref=f1e332]: Leo starts with parking lots D1 & C6 and $10M.
+            - generic [ref=f1e333]:
+              - generic [ref=f1e334]: T0
+              - generic [ref=f1e335]: "Turn order rolls: Eric 7, Ana 9, Leo 5. Ana goes first."
+            - generic [ref=f1e336]:
+              - generic [ref=f1e337]: T1
+              - generic [ref=f1e338]: Ana drew D3 (Vega).
+            - generic [ref=f1e339]:
+              - generic [ref=f1e340]: T1
+              - generic [ref=f1e341]: Ana places a lot marker on D3.
+            - generic [ref=f1e342]:
+              - generic [ref=f1e343]: T1
+              - generic [ref=f1e344]: "Parking lots pay $1M each: Ana (B6), Leo (C6), Eric (C7), Leo (D1), Ana (D2), Ana (D3), Eric (E3)."
+            - generic [ref=f1e345]:
+              - generic [ref=f1e346]: T1
+              - generic [ref=f1e347]: Ana builds a Albion casino on D2 for $9M.
+            - generic [ref=f1e348]:
+              - generic [ref=f1e349]: T1
+              - generic [ref=f1e350]: "Ana reorganizes the casino at D2 for $3M. Rerolls: D2: 3→6."
+            - generic [ref=f1e351]:
+              - generic [ref=f1e352]: T2
+              - generic [ref=f1e353]: Leo's turn begins.
+            - generic [ref=f1e354]:
+              - generic [ref=f1e355]: T2
+              - generic [ref=f1e356]: Leo drew E2 (Albion).
+            - generic [ref=f1e357]:
+              - generic [ref=f1e358]: T2
+              - generic [ref=f1e359]: Leo places a lot marker on E2.
+            - generic [ref=f1e360]:
+              - generic [ref=f1e361]: T2
+              - generic [ref=f1e362]: "Parking lots pay $1M each: Ana (B6), Leo (C6), Eric (C7), Leo (D1), Ana (D3), Leo (E2), Eric (E3)."
+            - generic [ref=f1e363]:
+              - generic [ref=f1e364]: T2
+              - generic [ref=f1e365]: "Casino payout: Ana +$6M."
+            - generic [ref=f1e366]:
+              - generic [ref=f1e367]: T2
+              - generic [ref=f1e368]: Ana's 1-tile casino (D2) scores — marker moves to 1.
+            - generic [ref=f1e369]:
+              - generic [ref=f1e370]: T2
+              - generic [ref=f1e371]: Leo builds a Albion casino on C6 for $12M.
+            - generic [ref=f1e372]:
+              - generic [ref=f1e373]: T2
+              - generic [ref=f1e374]: "Leo wagers $3M at Ana's casino (D2): rolled 5 — the House wins. Ana takes the $3M bet."
+            - generic [ref=f1e375]:
+              - generic [ref=f1e376]: T3
+              - generic [ref=f1e377]: Eric's turn begins.
+            - generic [ref=f1e378]:
+              - generic [ref=f1e379]: T3
+              - generic [ref=f1e380]: Eric drew A3 (Vega).
+            - generic [ref=f1e381]:
+              - generic [ref=f1e382]: T3
+              - generic [ref=f1e383]: Eric places a lot marker on A3.
+            - generic [ref=f1e384]:
+              - generic [ref=f1e385]: T3
+              - generic [ref=f1e386]: "Parking lots pay $1M each: Eric (A3), Ana (B6), Eric (C7), Leo (D1), Ana (D3), Leo (E2), Eric (E3)."
+            - generic [ref=f1e387]:
+              - generic [ref=f1e388]: T3
+              - generic [ref=f1e389]: Eric builds a Sphinx casino on E3 for $15M.
+            - generic [ref=f1e390]:
+              - generic [ref=f1e391]: T3
+              - generic [ref=f1e392]: "Eric wagers $1M at Leo's casino (C6): rolled 8 — the House wins. Leo takes the $1M bet."
+            - generic [ref=f1e393]:
+              - generic [ref=f1e394]: T4
+              - generic [ref=f1e395]: Ana's turn begins.
+            - generic [ref=f1e396]:
+              - generic [ref=f1e397]: T4
+              - generic [ref=f1e398]: Ana drew C4 (Pioneer).
+            - generic [ref=f1e399]:
+              - generic [ref=f1e400]: T4
+              - generic [ref=f1e401]: Ana places a lot marker on C4.
+            - generic [ref=f1e402]:
+              - generic [ref=f1e403]: T4
+              - generic [ref=f1e404]: "Parking lots pay $1M each: Eric (A3), Ana (B6), Ana (C4), Eric (C7), Leo (D1), Ana (D3), Leo (E2)."
+            - generic [ref=f1e405]:
+              - generic [ref=f1e406]: T4
+              - generic [ref=f1e407]: Ana builds a Vega casino on C4 for $6M.
+            - generic [ref=f1e408]:
+              - generic [ref=f1e409]: T4
+              - generic [ref=f1e410]: Ana builds a Pioneer casino on B6 for $12M.
+            - generic [ref=f1e411]:
+              - generic [ref=f1e412]: T5
+              - generic [ref=f1e413]: Leo's turn begins.
+            - generic [ref=f1e414]:
+              - generic [ref=f1e415]: T5
+              - generic [ref=f1e416]: Leo drew F9 (Tivoli).
+            - generic [ref=f1e417]:
+              - generic [ref=f1e418]: T5
+              - generic [ref=f1e419]: Leo places a lot marker on F9.
+            - generic [ref=f1e420]:
+              - generic [ref=f1e421]: T5
+              - generic [ref=f1e422]: "Parking lots pay $1M each: Eric (A3), Eric (C7), Leo (D1), Ana (D3), Leo (E2), Leo (F9)."
+            - generic [ref=f1e423]:
+              - generic [ref=f1e424]: T5
+              - generic [ref=f1e425]: Leo builds a Tivoli casino on E2 for $6M.
+            - generic [ref=f1e426]:
+              - generic [ref=f1e427]: T6
+              - generic [ref=f1e428]: Eric's turn begins.
+            - generic [ref=f1e777]:
+              - generic [ref=f1e778]: T6
+              - generic [ref=f1e779]: Eric drew E4 (Tivoli).
+            - generic [ref=f1e780]:
+              - generic [ref=f1e781]: T6
+              - generic [ref=f1e782]: Eric places a lot marker on E4.
+            - generic [ref=f1e783]:
+              - generic [ref=f1e784]: T6
+              - generic [ref=f1e785]: "Parking lots pay $1M each: Eric (A3), Eric (C7), Leo (D1), Ana (D3), Eric (E4), Leo (F9)."
+            - generic [ref=f1e786]:
+              - generic [ref=f1e787]: T6
+              - generic [ref=f1e788]: "Casino payout: Leo +$2M."
+            - generic [ref=f1e789]:
+              - generic [ref=f1e790]: T6
+              - generic [ref=f1e791]: Leo's 1-tile casino (E2) scores — marker moves to 1.
+      - generic [ref=f1e431]:
+        - generic [ref=f1e432]:
+          - generic [ref=f1e433]:
+            - button "Lot A1" [disabled] [ref=f1e434]:
+              - generic [ref=f1e435]:
+                - img [ref=f1e436]
+                - generic:
+                  - generic: A1
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot A2" [disabled] [ref=f1e437]:
+              - generic [ref=f1e438]:
+                - img [ref=f1e439]
+                - generic:
+                  - generic: A2
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot A3" [disabled] [ref=f1e440]:
+              - generic [ref=f1e441]:
+                - img [ref=f1e442]
+                - generic:
+                  - generic: A3
+                  - generic: $15M
+                  - generic: "5"
+                - img "Eric's lot" [ref=f1e444]
+            - button "Lot A4" [disabled] [ref=f1e445]:
+              - generic [ref=f1e446]:
+                - img [ref=f1e447]
+                - generic:
+                  - generic: A4
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot A5" [disabled] [ref=f1e448]:
+              - generic [ref=f1e449]:
+                - img [ref=f1e450]
+                - generic:
+                  - generic: A5
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot A6" [disabled] [ref=f1e451]:
+              - generic [ref=f1e452]:
+                - img [ref=f1e453]
+                - generic:
+                  - generic: A6
+                  - generic: $20M
+                  - generic: "6"
+          - generic [ref=f1e455]: Sahara Ave
+          - generic [ref=f1e456]:
+            - button "Lot C1" [disabled] [ref=f1e457]:
+              - generic [ref=f1e458]:
+                - img [ref=f1e459]
+                - generic:
+                  - generic: C1
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot C2" [disabled] [ref=f1e460]:
+              - generic [ref=f1e461]:
+                - img [ref=f1e462]
+                - generic:
+                  - generic: C2
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot C3" [disabled] [ref=f1e463]:
+              - generic [ref=f1e464]:
+                - img [ref=f1e465]
+                - generic:
+                  - generic: C3
+                  - generic: $20M
+                  - generic: "6"
+            - button "Lot C4" [disabled] [ref=f1e466]:
+              - generic [ref=f1e467]:
+                - generic [ref=f1e468]: C4
+                - img "Green die showing 2" [ref=f1e471]
+            - button "Lot C5" [disabled] [ref=f1e476]:
+              - generic [ref=f1e477]:
+                - img [ref=f1e478]
+                - generic:
+                  - generic: C5
+                  - generic: $8M
+                  - generic: "1"
+            - button "Lot C6" [disabled] [ref=f1e479]:
+              - generic [ref=f1e480]:
+                - generic [ref=f1e481]: C6
+                - img "Red die showing 4" [ref=f1e484]
+            - button "Lot C7" [disabled] [ref=f1e491]:
+              - generic [ref=f1e492]:
+                - img [ref=f1e493]
+                - generic:
+                  - generic: C7
+                  - generic: $6M
+                  - generic: "2"
+                - img "Eric's lot" [ref=f1e495]
+            - button "Lot C8" [disabled] [ref=f1e496]:
+              - generic [ref=f1e497]:
+                - img [ref=f1e498]
+                - generic:
+                  - generic: C8
+                  - generic: $8M
+                  - generic: "1"
+            - button "Lot C9" [disabled] [ref=f1e499]:
+              - generic [ref=f1e500]:
+                - img [ref=f1e501]
+                - generic:
+                  - generic: C9
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot C10" [disabled] [ref=f1e502]:
+              - generic [ref=f1e503]:
+                - img [ref=f1e504]
+                - generic:
+                  - generic: C10
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot C11" [disabled] [ref=f1e505]:
+              - generic [ref=f1e506]:
+                - img [ref=f1e507]
+                - generic:
+                  - generic: C11
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot C12" [disabled] [ref=f1e508]:
+              - generic [ref=f1e509]:
+                - img [ref=f1e510]
+                - generic:
+                  - generic: C12
+                  - generic: $15M
+                  - generic: "5"
+          - generic [ref=f1e512]: Flamingo Rd
+          - generic [ref=f1e513]:
+            - button "Lot E1" [disabled] [ref=f1e514]:
+              - generic [ref=f1e515]:
+                - img [ref=f1e516]
+                - generic:
+                  - generic: E1
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot E2" [disabled] [ref=f1e517]:
+              - generic [ref=f1e518]:
+                - generic [ref=f1e519]: E2
+                - img "Red die showing 2" [ref=f1e522]
+            - button "Lot E3" [disabled] [ref=f1e527]:
+              - generic [ref=f1e528]:
+                - generic [ref=f1e529]: E3
+                - img "Blue die showing 5" [ref=f1e532]
+            - button "Lot E4" [disabled] [ref=f1e540]:
+              - generic [ref=f1e541]:
+                - img [ref=f1e542]
+                - generic:
+                  - generic: E4
+                  - generic: $12M
+                  - generic: "4"
+                - img "Eric's lot" [ref=f1e793]
+            - button "Lot E5" [disabled] [ref=f1e543]:
+              - generic [ref=f1e544]:
+                - img [ref=f1e545]
+                - generic:
+                  - generic: E5
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot E6" [disabled] [ref=f1e546]:
+              - generic [ref=f1e547]:
+                - img [ref=f1e548]
+                - generic:
+                  - generic: E6
+                  - generic: $20M
+                  - generic: "6"
+        - generic [ref=f1e551]: The Strip
+        - generic [ref=f1e552]:
+          - generic [ref=f1e553]:
+            - button "Lot B1" [disabled] [ref=f1e554]:
+              - generic [ref=f1e555]:
+                - img [ref=f1e556]
+                - generic:
+                  - generic: B1
+                  - generic: $15M
+                  - generic: "5"
+            - button "Lot B2" [disabled] [ref=f1e557]:
+              - generic [ref=f1e558]:
+                - img [ref=f1e559]
+                - generic:
+                  - generic: B2
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot B3" [disabled] [ref=f1e560]:
+              - generic [ref=f1e561]:
+                - img [ref=f1e562]
+                - generic:
+                  - generic: B3
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot B4" [disabled] [ref=f1e563]:
+              - generic [ref=f1e564]:
+                - img [ref=f1e565]
+                - generic:
+                  - generic: B4
+                  - generic: $20M
+                  - generic: "6"
+            - button "Lot B5" [disabled] [ref=f1e566]:
+              - generic [ref=f1e567]:
+                - img [ref=f1e568]
+                - generic:
+                  - generic: B5
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot B6" [disabled] [ref=f1e569]:
+              - generic [ref=f1e570]:
+                - generic [ref=f1e571]: B6
+                - img "Green die showing 4" [ref=f1e574]
+          - generic [ref=f1e582]: Sahara Ave
+          - generic [ref=f1e583]:
+            - button "Lot D1" [disabled] [ref=f1e584]:
+              - generic [ref=f1e585]:
+                - img [ref=f1e586]
+                - generic:
+                  - generic: D1
+                  - generic: $20M
+                  - generic: "6"
+                - img "Leo's lot" [ref=f1e588]
+            - button "Lot D2" [disabled] [ref=f1e589]:
+              - generic [ref=f1e590]:
+                - generic [ref=f1e591]: D2
+                - img "Green die showing 6" [ref=f1e594]
+            - button "Lot D3" [disabled] [ref=f1e603]:
+              - generic [ref=f1e604]:
+                - img [ref=f1e605]
+                - generic:
+                  - generic: D3
+                  - generic: $12M
+                  - generic: "4"
+                - img "Ana's lot" [ref=f1e607]
+            - button "Lot D4" [disabled] [ref=f1e608]:
+              - generic [ref=f1e609]:
+                - img [ref=f1e610]
+                - generic:
+                  - generic: D4
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot D5" [disabled] [ref=f1e611]:
+              - generic [ref=f1e612]:
+                - img [ref=f1e613]
+                - generic:
+                  - generic: D5
+                  - generic: $8M
+                  - generic: "1"
+            - button "Lot D6" [disabled] [ref=f1e614]:
+              - generic [ref=f1e615]:
+                - img [ref=f1e616]
+                - generic:
+                  - generic: D6
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot D7" [disabled] [ref=f1e617]:
+              - generic [ref=f1e618]:
+                - img [ref=f1e619]
+                - generic:
+                  - generic: D7
+                  - generic: $15M
+                  - generic: "5"
+            - button "Lot D8" [disabled] [ref=f1e620]:
+              - generic [ref=f1e621]:
+                - img [ref=f1e622]
+                - generic:
+                  - generic: D8
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot D9" [disabled] [ref=f1e623]:
+              - generic [ref=f1e624]:
+                - img [ref=f1e625]
+                - generic:
+                  - generic: D9
+                  - generic: $9M
+                  - generic: "3"
+          - generic [ref=f1e627]: Harmon Ave
+          - generic [ref=f1e628]:
+            - button "Lot F1" [disabled] [ref=f1e629]:
+              - generic [ref=f1e630]:
+                - img [ref=f1e631]
+                - generic:
+                  - generic: F1
+                  - generic: $20M
+                  - generic: "6"
+            - button "Lot F2" [disabled] [ref=f1e632]:
+              - generic [ref=f1e633]:
+                - img [ref=f1e634]
+                - generic:
+                  - generic: F2
+                  - generic: $9M
+                  - generic: "3"
+            - button "Lot F3" [disabled] [ref=f1e635]:
+              - generic [ref=f1e636]:
+                - img [ref=f1e637]
+                - generic:
+                  - generic: F3
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot F4" [disabled] [ref=f1e638]:
+              - generic [ref=f1e639]:
+                - img [ref=f1e640]
+                - generic:
+                  - generic: F4
+                  - generic: $12M
+                  - generic: "4"
+            - button "Lot F5" [disabled] [ref=f1e641]:
+              - generic [ref=f1e642]:
+                - img [ref=f1e643]
+                - generic:
+                  - generic: F5
+                  - generic: $8M
+                  - generic: "1"
+            - button "Lot F6" [disabled] [ref=f1e644]:
+              - generic [ref=f1e645]:
+                - img [ref=f1e646]
+                - generic:
+                  - generic: F6
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot F7" [disabled] [ref=f1e647]:
+              - generic [ref=f1e648]:
+                - img [ref=f1e649]
+                - generic:
+                  - generic: F7
+                  - generic: $15M
+                  - generic: "5"
+            - button "Lot F8" [disabled] [ref=f1e650]:
+              - generic [ref=f1e651]:
+                - img [ref=f1e652]
+                - generic:
+                  - generic: F8
+                  - generic: $6M
+                  - generic: "2"
+            - button "Lot F9" [disabled] [ref=f1e653]:
+              - generic [ref=f1e654]:
+                - img [ref=f1e655]
+                - generic:
+                  - generic: F9
+                  - generic: $9M
+                  - generic: "3"
+                - img "Leo's lot" [ref=f1e657]
+      - complementary [ref=f1e658]:
+        - generic [ref=f1e661]:
+          - heading "Deck & Discards" [level=3] [ref=f1e664]
+          - generic [ref=f1e666]:
+            - generic [ref=f1e667]:
+              - 'generic "Albion: 1 discarded" [ref=f1e668]':
+                - generic [ref=f1e669]: Albion
+                - generic "1 cards discarded" [ref=f1e670]:
+                  - generic [ref=f1e673]: "1"
+              - 'generic "Sphinx: 1 discarded" [ref=f1e674]':
+                - generic [ref=f1e675]: Sphinx
+                - generic "1 cards discarded" [ref=f1e676]:
+                  - generic [ref=f1e679]: "1"
+              - 'generic "Vega: 3 discarded" [ref=f1e680]':
+                - generic [ref=f1e681]: Vega
+                - generic "3 cards discarded" [ref=f1e682]:
+                  - generic [ref=f1e685]: "3"
+              - 'generic "Tivoli: 4 discarded" [ref=f1e794]':
+                - generic [ref=f1e687]: Tivoli
+                - generic "4 cards discarded" [ref=f1e795]:
+                  - generic [ref=f1e691]: "4"
+              - 'generic "Pioneer: 3 discarded" [ref=f1e692]':
+                - generic [ref=f1e693]: Pioneer
+                - generic "3 cards discarded" [ref=f1e694]:
+                  - generic [ref=f1e697]: "3"
+              - 'generic "The Strip: 0 discarded" [ref=f1e698]':
+                - generic [ref=f1e699]: The Strip
+                - generic "0 cards discarded" [ref=f1e700]:
+                  - generic [ref=f1e703]: "0"
+            - generic [ref=f1e704]:
+              - generic "37 cards in deck" [ref=f1e796]:
+                - generic [ref=f1e799]:
+                  - generic [ref=f1e800]:
+                    - generic [ref=f1e801]: E4
+                    - img [ref=f1e803]
+                  - generic [ref=f1e805]: Tivoli pays
+              - generic [ref=f1e712]:
+                - generic [ref=f1e713]: Cards in deck
+                - generic [ref=f1e714]: "37"
+        - generic [ref=f1e716]:
+          - heading "Your stats" [level=2] [ref=f1e720]
+          - generic [ref=f1e725]:
+            - generic "Money" [ref=f1e726]:
+              - generic [ref=f1e728]: Money
+              - generic [ref=f1e730]:
+                - text: $11M
+                - generic: +$3M
+            - generic "Dice" [ref=f1e731]:
+              - generic [ref=f1e732]:
+                - img [ref=f1e733]
+                - generic [ref=f1e737]: Dice
+              - generic [ref=f1e739]:
+                - text: "11"
+                - generic [ref=f1e740]: /12
+            - generic "Markers" [ref=f1e741]:
+              - generic [ref=f1e744]: Markers
+              - generic [ref=f1e746]:
+                - text: "7"
+                - generic [ref=f1e747]: /10
+        - generic [ref=f1e748]:
+          - heading "Actions" [level=2] [ref=f1e752]
+          - generic [ref=f1e755]:
+            - generic [ref=f1e756]:
+              - button "Build" [ref=f1e807] [cursor=pointer]:
+                - img [ref=f1e809]
+                - generic [ref=f1e813]: Build
+              - generic [ref=f1e814]:
+                - button "Sprawl" [disabled]:
+                  - generic:
+                    - img
+                  - generic: Sprawl
+              - button "Remodel" [ref=f1e816] [cursor=pointer]:
+                - img [ref=f1e818]
+                - generic [ref=f1e822]: Remodel
+              - generic [ref=f1e823]:
+                - button "Raise" [disabled]:
+                  - generic:
+                    - img
+                  - generic: Raise
+              - button "Reorganize" [ref=f1e825] [cursor=pointer]:
+                - img [ref=f1e827]
+                - generic [ref=f1e830]: Reorganize
+              - button "Gamble" [ref=f1e832] [cursor=pointer]:
+                - img [ref=f1e834]
+                - generic [ref=f1e841]: Gamble
+            - button "End turn" [ref=f1e843] [cursor=pointer]:
+              - img [ref=f1e845]
+              - generic [ref=f1e847]: End Turn
+        - generic [ref=f1e758]:
+          - heading "Trades" [level=2] [ref=f1e762]
+          - button "Propose a trade" [ref=f1e766]
