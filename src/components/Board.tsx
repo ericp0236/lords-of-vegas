@@ -424,7 +424,7 @@ export function Board({
   // rows per column, streets 0.35 and the Strip 0.65 of a cell. The fixed
   // aspect ratio keeps the cells square regardless of container size.
   return (
-    <div className={`flex min-h-0 items-center justify-center ${className}`}>
+    <div className={`flex h-full min-h-0 items-center justify-center ${className}`}>
       <div
         className="board-vegas gold-rail grid h-full max-h-full w-auto max-w-full grid-cols-[3fr_0.65fr_3fr] overflow-visible rounded-xl p-2"
         style={{ aspectRatio: "6.65 / 8.7" }}

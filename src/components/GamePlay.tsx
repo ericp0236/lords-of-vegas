@@ -44,6 +44,7 @@ import { useGameFeedback } from "@/lib/useGameFeedback";
 import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
 import type { useGame } from "@/lib/useGame";
 import { Board, type BoardOverlayDie } from "./Board";
+import { BottomSlideBar } from "./BottomSlideBar";
 import { CasinoColorBar } from "./CasinoColorBar";
 import { RollingDie } from "./DieFace";
 import { DiscardPiles } from "./DiscardPiles";
@@ -501,27 +502,22 @@ export function GamePlay({
         </aside>
 
         <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] gap-1.5">
-          <Board
-            state={state}
-            eligibleLots={eligibleLots}
-            clickableLots={clickableLots}
-            focusedLots={buildFocusedLots ?? (selectedReorgLot ? new Set([selectedReorgLot]) : undefined)}
-            overlayDice={boardOverlayDice}
-            onLotClick={onLotClick}
-            className="min-h-0 min-w-0 overflow-hidden"
-          />
+          <div className="min-h-0 h-full min-w-0 overflow-hidden">
+            <Board
+              state={state}
+              eligibleLots={eligibleLots}
+              clickableLots={clickableLots}
+              focusedLots={buildFocusedLots ?? (selectedReorgLot ? new Set([selectedReorgLot]) : undefined)}
+              overlayDice={boardOverlayDice}
+              onLotClick={onLotClick}
+              className="h-full min-h-0 min-w-0 overflow-hidden"
+            />
+          </div>
 
           <div className="relative z-20 min-h-0 overflow-hidden">
             <AnimatePresence initial={false}>
               {mode.kind === "build" && (
-                <motion.div
-                  key="build"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  className="overflow-hidden"
-                >
+                <BottomSlideBar barKey="build">
                   <CasinoColorBar
                     lotId={mode.lotId}
                     selectedColor={mode.color}
@@ -532,17 +528,10 @@ export function GamePlay({
                     onPick={handleBuildColorPick}
                     onClose={() => setMode({ kind: "idle" })}
                   />
-                </motion.div>
+                </BottomSlideBar>
               )}
               {mode.kind === "remodel-color" && (
-                <motion.div
-                  key={`remodel-${mode.lotId}`}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  className="overflow-hidden"
-                >
+                <BottomSlideBar barKey={`remodel-${mode.lotId}`}>
                   <CasinoColorBar
                     lotId={mode.lotId}
                     action="remodel"
@@ -555,17 +544,10 @@ export function GamePlay({
                     }
                     onClose={() => setMode({ kind: "idle" })}
                   />
-                </motion.div>
+                </BottomSlideBar>
               )}
               {mode.kind === "trade-builder" && (
-                <motion.div
-                  key="trade-builder"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  className="overflow-hidden"
-                >
+                <BottomSlideBar barKey="trade-builder">
                   <TradeBuilderBar
                     state={state}
                     meId={meId}
@@ -575,27 +557,28 @@ export function GamePlay({
                       await send(meId, { type: "proposeTrade", steps });
                     }}
                   />
-                </motion.div>
+                </BottomSlideBar>
+              )}
+              {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && !inRollPhase && (
+                <BottomSlideBar barKey="reorg-placement">
+                  <ReorgPlacementBar
+                    playerColor={me.color}
+                    remaining={reorgDraft.remaining}
+                    selectedIdx={selectedReorgIdx}
+                    selectedLot={selectedReorgLot}
+                    onSelectDie={handleReorgDieSelect}
+                    complete={reorgComplete}
+                    onConfirm={() =>
+                      dispatch({
+                        type: "chooseReorgPlacement",
+                        playerId: meId,
+                        placements: reorgDraft.placements,
+                      })
+                    }
+                  />
+                </BottomSlideBar>
               )}
             </AnimatePresence>
-
-            {myPendingReorg && reorgDraft && pending?.kind === "reorgPlacement" && !inRollPhase && (
-              <ReorgPlacementBar
-                playerColor={me.color}
-                remaining={reorgDraft.remaining}
-                selectedIdx={selectedReorgIdx}
-                selectedLot={selectedReorgLot}
-                onSelectDie={handleReorgDieSelect}
-                complete={reorgComplete}
-                onConfirm={() =>
-                  dispatch({
-                    type: "chooseReorgPlacement",
-                    playerId: meId,
-                    placements: reorgDraft.placements,
-                  })
-                }
-              />
-            )}
           </div>
 
           {/* -------------------------------------------- status strip (mobile: full action dock) */}
