@@ -55,5 +55,7 @@ export function LogPanel({
 }
 
 export function stateLogLines(log: LogEvent[]): LogLine[] {
-  return log.map((e, i) => ({ key: `${e.at}-${i}`, type: e.type, message: e.message, turn: e.turn }));
+  return log
+    .filter((e) => e.type !== "gamble-roll")
+    .map((e, i) => ({ key: `${e.at}-${i}`, type: e.type, message: e.message, turn: e.turn }));
 }

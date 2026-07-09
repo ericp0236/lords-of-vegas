@@ -142,6 +142,8 @@ export function RollingDie({
   rollOnMount = false,
   longRoll = false,
   fromValue,
+  totalMs: totalMsProp,
+  continuous = false,
 }: {
   value: number;
   color?: PlayerColor;
@@ -153,10 +155,14 @@ export function RollingDie({
   longRoll?: boolean;
   /** Animate from a specific prior value (reorganize reveal) */
   fromValue?: number;
+  /** Override the total tumble duration (ms). Falls back to the long/short defaults. */
+  totalMs?: number;
+  /** Keep tumbling indefinitely until unmounted (gamble dice tray). */
+  continuous?: boolean;
 }) {
-  const shouldRollOnMount = rollOnMount || fromValue !== undefined;
+  const shouldRollOnMount = rollOnMount || fromValue !== undefined || continuous;
   const stepCount = longRoll ? 15 : 11;
-  const totalMs = longRoll ? 1200 : 720;
+  const totalMs = totalMsProp ?? (longRoll ? 1200 : 720);
   const revealKey =
     fromValue !== undefined ? `reveal:${fromValue}->${value}:${longRoll}` : null;
   const revealRanRef = useRef<string | null>(null);
@@ -184,6 +190,31 @@ export function RollingDie({
 
   useEffect(() => {
     clearTimers();
+
+    if (continuous) {
+      let current =
+        fromValue !== undefined
+          ? fromValue
+          : nextPipFace(nextPipFace(value));
+      setRolling(true);
+      setLanding(false);
+      setDisplay(current);
+      setFaceEpoch(0);
+
+      const tick = () => {
+        current = nextPipFace(current);
+        setDisplay(current);
+        setFaceEpoch((n) => n + 1);
+        schedule(tick, 95);
+      };
+      schedule(tick, 45);
+      return () => {
+        clearTimers();
+        if (fromValue !== undefined) revealRanRef.current = null;
+        else if (shouldRollOnMount) prevRef.current = null;
+      };
+    }
+
     const isReveal = fromValue !== undefined;
     let startFace: number;
 
@@ -222,8 +253,16 @@ export function RollingDie({
     };
 
     schedule(advance, delays[0] ?? 45);
-    return clearTimers;
-  }, [value, fromValue, revealKey, stepCount, totalMs]);
+    return () => {
+      clearTimers();
+      // Strict Mode re-runs effects after cleanup — reset so the roll can replay.
+      if (isReveal) {
+        revealRanRef.current = null;
+      } else if (shouldRollOnMount) {
+        prevRef.current = null;
+      }
+    };
+  }, [value, fromValue, revealKey, stepCount, totalMs, shouldRollOnMount, continuous]);
 
   const die = (
     <DieFace value={display} color={color} palette={palette} size={size} />

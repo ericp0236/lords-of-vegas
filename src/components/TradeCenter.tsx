@@ -5,36 +5,30 @@
  * reject, cancel, and execute. One pending trade per game.
  */
 
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
 import type { LotId } from "@/data/boardLots";
 import { BOARD_LOTS } from "@/data/boardLots";
-import { CASINOS, CASINO_COLOR_KEYS, type CasinoColor } from "@/data/casinoCards";
+import { CASINOS } from "@/data/casinoCards";
+import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
 import { diceLots, parkingLots } from "@/engine/helpers";
 import type { ActionCommand, GameState, TradeStep } from "@/engine/types";
-import {
-  buildTargets,
-  gambleTargets,
-  raiseTargets,
-  remodelTargets,
-  reorganizeTargets,
-  sprawlFromTargets,
-  sprawlTargets,
-} from "@/lib/candidates";
 import type { useGame } from "@/lib/useGame";
+import { playSound } from "@/lib/sound/SoundManager";
 import { Button } from "./ui/Button";
+import { PlayerCarMarker } from "./ui/MiniIcons";
 import { Panel } from "./ui/Panel";
 
 export function TradeCenter({
   state,
   meId,
   send,
+  onOpenBuilder,
 }: {
   state: GameState;
   meId: string;
   send: ReturnType<typeof useGame>["send"];
+  onOpenBuilder: () => void;
 }) {
-  const [builderOpen, setBuilderOpen] = useState(false);
   const trade = state.trade;
 
   return (
@@ -42,31 +36,16 @@ export function TradeCenter({
       {trade ? (
         <PendingTrade state={state} meId={meId} send={send} />
       ) : (
-        <>
-          <Button
-            variant="sky"
-            size="sm"
-            sound="open"
-            onClick={() => setBuilderOpen(true)}
-            disabled={state.phase !== "playing" || !!state.pendingChoice}
-            className="w-full"
-          >
-            Propose a trade
-          </Button>
-          <AnimatePresence>
-            {builderOpen && (
-              <TradeBuilder
-                state={state}
-                meId={meId}
-                onClose={() => setBuilderOpen(false)}
-                onPropose={async (steps) => {
-                  setBuilderOpen(false);
-                  await send(meId, { type: "proposeTrade", steps });
-                }}
-              />
-            )}
-          </AnimatePresence>
-        </>
+        <Button
+          variant="sky"
+          size="sm"
+          sound="open"
+          onClick={onOpenBuilder}
+          disabled={state.phase !== "playing" || !!state.pendingChoice}
+          className="w-full"
+        >
+          Propose a trade
+        </Button>
       )}
     </Panel>
   );
@@ -74,17 +53,43 @@ export function TradeCenter({
 
 // ---------------------------------------------------------------------------
 
-function describeStep(state: GameState, step: TradeStep): string {
-  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "?";
+function playerNameNode(state: GameState, id: string) {
+  const p = state.players.find((pl) => pl.id === id);
+  if (!p) return "?";
+  return (
+    <span style={{ color: PLAYER_COLORS[p.color].hex }} className="font-semibold">
+      {p.name}
+    </span>
+  );
+}
+
+function StepLine({ state, step }: { state: GameState; step: TradeStep }) {
   switch (step.type) {
     case "money":
-      return `${name(step.from)} pays ${name(step.to)} $${step.amount}M`;
+      return (
+        <>
+          {playerNameNode(state, step.from)} pays {playerNameNode(state, step.to)} ${step.amount}M
+        </>
+      );
     case "lot":
-      return `${name(step.from)} gives lot ${step.lotId} to ${name(step.to)}`;
+      return (
+        <>
+          {playerNameNode(state, step.from)} gives lot {step.lotId} to {playerNameNode(state, step.to)}
+        </>
+      );
     case "die":
-      return `${name(step.from)}'s die on ${step.lotId} goes to ${name(step.to)}`;
+      return (
+        <>
+          {playerNameNode(state, step.from)}&apos;s die on {step.lotId} goes to{" "}
+          {playerNameNode(state, step.to)}
+        </>
+      );
     case "action":
-      return `${name(step.player)} performs: ${describeAction(step.action)}`;
+      return (
+        <>
+          {playerNameNode(state, step.player)} performs: {describeAction(step.action)}
+        </>
+      );
   }
 }
 
@@ -128,7 +133,7 @@ function PendingTrade({
       <ol className="space-y-1 text-xs">
         {trade.steps.map((step, i) => (
           <li key={i} className="rounded bg-black/25 px-2 py-1">
-            {i + 1}. {describeStep(state, step)}
+            {i + 1}. <StepLine state={state} step={step} />
           </li>
         ))}
       </ol>
@@ -213,32 +218,54 @@ function PendingTrade({
 
 // ---------------------------------------------------------------------------
 
-type StepDraftKind = "money" | "lot" | "die" | "action";
+type TradePlayer = { id: string; name: string; color: PlayerColor };
 
-const selectCls =
-  "rounded-md border border-[var(--border)] bg-black/40 px-2 py-1 text-xs outline-none focus:border-[var(--accent)]";
+const fieldCls =
+  "w-full rounded-md border border-[var(--border)] bg-black/40 px-2 py-1.5 text-xs outline-none focus:border-[var(--accent)]";
 
 function PlayerSelect({
   players,
   value,
   onChange,
+  label,
+  excludeId,
 }: {
-  players: { id: string; name: string }[];
+  players: TradePlayer[];
   value: string;
   onChange: (v: string) => void;
+  label: string;
+  excludeId?: string;
 }) {
+  const options = excludeId ? players.filter((p) => p.id !== excludeId) : players;
+  const selected = players.find((p) => p.id === value);
+  const selectedHex = selected ? PLAYER_COLORS[selected.color].hex : undefined;
+
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={selectCls}>
-      {players.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-    </select>
+    <label className="trade-builder-bar__field">
+      <span className="trade-builder-bar__label">{label}</span>
+      <div className="trade-builder-bar__select-wrap">
+        {selected && (
+          <PlayerCarMarker color={PLAYER_COLORS[selected.color].hex} size={12} className="shrink-0" />
+        )}
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${fieldCls} min-w-0 flex-1 font-semibold`}
+          style={{ color: selectedHex }}
+        >
+          {options.map((p) => (
+            <option key={p.id} value={p.id} style={{ color: PLAYER_COLORS[p.color].hex }}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </label>
   );
 }
 
-function TradeBuilder({
+/** Inline bottom bar for composing a trade while the board stays visible. */
+export function TradeBuilderBar({
   state,
   meId,
   onClose,
@@ -250,166 +277,137 @@ function TradeBuilder({
   onPropose: (steps: TradeStep[]) => void;
 }) {
   const [steps, setSteps] = useState<TradeStep[]>([]);
-  const [kind, setKind] = useState<StepDraftKind>("money");
-  const players = [...state.players].sort((a, b) => a.seat - b.seat);
-  const activeId = state.turn?.activePlayerId;
 
-  // money draft
-  const [mFrom, setMFrom] = useState(meId);
-  const [mTo, setMTo] = useState(players.find((p) => p.id !== meId)?.id ?? meId);
-  const [mAmount, setMAmount] = useState(1);
-  // lot draft
-  const [lFrom, setLFrom] = useState(meId);
-  const [lTo, setLTo] = useState(players.find((p) => p.id !== meId)?.id ?? meId);
-  const [lLot, setLLot] = useState<LotId | "">("");
-  // die draft
-  const [dFrom, setDFrom] = useState(meId);
-  const [dTo, setDTo] = useState(players.find((p) => p.id !== meId)?.id ?? meId);
-  const [dLot, setDLot] = useState<LotId | "">("");
-  // action draft (always the active player)
-  const [aType, setAType] = useState<ActionCommand["type"]>("build");
-  const [aLot, setALot] = useState<LotId | "">("");
-  const [aLot2, setALot2] = useState<LotId | "">("");
-  const [aColor, setAColor] = useState<CasinoColor>("albion");
-  const [aWager, setAWager] = useState(1);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const players: TradePlayer[] = [...state.players]
+    .sort((a, b) => a.seat - b.seat)
+    .map((p) => ({ id: p.id, name: p.name, color: p.color }));
+  const defaultTo = players.find((p) => p.id !== meId)?.id ?? meId;
 
-  const lotOptions = useMemo(() => (lFrom ? parkingLots(state, lFrom) : []), [state, lFrom]);
-  const dieOptions = useMemo(() => (dFrom ? diceLots(state, dFrom) : []), [state, dFrom]);
+  const [from, setFrom] = useState(meId);
+  const [to, setTo] = useState(defaultTo);
+  const [amount, setAmount] = useState("");
+  const [lotId, setLotId] = useState<LotId | "">("");
+  const [dieLot, setDieLot] = useState<LotId | "">("");
 
-  const actionLotOptions = useMemo(() => {
-    if (!activeId) return [];
-    switch (aType) {
-      case "build":
-        return buildTargets(state, activeId);
-      case "sprawl":
-        return sprawlFromTargets(state, activeId);
-      case "remodel":
-        return remodelTargets(state, activeId);
-      case "raise":
-        return raiseTargets(state, activeId);
-      case "reorganize":
-        return reorganizeTargets(state, activeId);
-      case "gamble":
-        return gambleTargets(state, activeId);
-    }
-  }, [state, activeId, aType]);
-
-  const sprawlToOptions = useMemo(
-    () =>
-      aType === "sprawl" && aLot && activeId ? sprawlTargets(state, aLot, activeId) : [],
-    [state, aType, aLot, activeId],
+  const lotOptions = useMemo(() => (from ? parkingLots(state, from) : []), [state, from]);
+  const dieOptions = useMemo(() => (from ? diceLots(state, from) : []), [state, from]);
+  const fromMoney = state.players.find((p) => p.id === from)?.money ?? 0;
+  const moneyOptions = useMemo(
+    () => Array.from({ length: fromMoney }, (_, i) => i + 1),
+    [fromMoney],
   );
 
-  function addStep() {
-    if (kind === "money") {
-      if (mFrom === mTo || mAmount < 1) return;
-      setSteps([...steps, { type: "money", from: mFrom, to: mTo, amount: mAmount }]);
-    } else if (kind === "lot") {
-      if (lFrom === lTo || !lLot) return;
-      setSteps([...steps, { type: "lot", from: lFrom, to: lTo, lotId: lLot }]);
-      setLLot("");
-    } else if (kind === "die") {
-      if (dFrom === dTo || !dLot) return;
-      setSteps([...steps, { type: "die", from: dFrom, to: dTo, lotId: dLot }]);
-      setDLot("");
-    } else if (kind === "action" && activeId) {
-      let action: ActionCommand | null = null;
-      if (aType === "build" && aLot) action = { type: "build", lotId: aLot, color: aColor };
-      if (aType === "sprawl" && aLot && aLot2)
-        action = { type: "sprawl", fromLot: aLot, toLot: aLot2 };
-      if (aType === "remodel" && aLot) action = { type: "remodel", lotId: aLot, newColor: aColor };
-      if (aType === "raise" && aLot) action = { type: "raise", lotId: aLot };
-      if (aType === "reorganize" && aLot) action = { type: "reorganize", lotId: aLot };
-      if (aType === "gamble" && aLot) action = { type: "gamble", lotId: aLot, wager: aWager };
-      if (!action) return;
-      setSteps([...steps, { type: "action", player: activeId, action }]);
-      setALot("");
-      setALot2("");
+  useEffect(() => {
+    if (lotId && !lotOptions.includes(lotId)) setLotId("");
+  }, [lotId, lotOptions]);
+
+  useEffect(() => {
+    if (dieLot && !dieOptions.includes(dieLot)) setDieLot("");
+  }, [dieLot, dieOptions]);
+
+  useEffect(() => {
+    if (amount !== "" && parseInt(amount, 10) > fromMoney) setAmount("");
+  }, [amount, fromMoney]);
+
+  function pickOtherPlayer(exclude: string) {
+    return players.find((p) => p.id !== exclude)?.id;
+  }
+
+  function setFromPlayer(id: string) {
+    setFrom(id);
+    if (id === to) {
+      const other = pickOtherPlayer(id);
+      if (other) setTo(other);
     }
   }
 
+  const parsedAmount = amount === "" ? 0 : parseInt(amount, 10);
+  const canAdd =
+    from !== to &&
+    (dieLot !== "" || lotId !== "" || (parsedAmount >= 1 && !Number.isNaN(parsedAmount)));
+
+  function addStep() {
+    if (!canAdd) return;
+    const next: TradeStep[] = [];
+    if (parsedAmount >= 1) next.push({ type: "money", from, to, amount: parsedAmount });
+    if (lotId) next.push({ type: "lot", from, to, lotId });
+    if (dieLot) next.push({ type: "die", from, to, lotId: dieLot });
+    if (next.length === 0) return;
+    setSteps([...steps, ...next]);
+    setAmount("");
+    setLotId("");
+    setDieLot("");
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[3px]"
-      onClick={onClose}
+    <div
+      className="casino-color-bar trade-builder-bar w-full max-h-[min(52vh,320px)] shrink-0 overflow-hidden"
+      role="region"
+      aria-label="Propose a trade"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 14 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 8 }}
-        transition={{ type: "spring", stiffness: 380, damping: 28 }}
-        className="scrollbar-thin max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Propose a trade"
-      >
-        <h3 className="text-sm font-bold">Propose a trade</h3>
-        <p className="mt-1 text-xs text-muted">
-          Steps execute in order. If a step can&apos;t happen, later steps don&apos;t occur. Every
-          affected player must approve.
-        </p>
+      <header className="casino-color-bar__header">
+        <div className="casino-color-bar__header-main">
+          <TradeIcon />
+          <span className="casino-color-bar__heading">Propose a trade</span>
+          <span className="hidden text-[11px] text-muted sm:inline">
+            Fill any combination on a row — money, lot, and casino can go together.
+          </span>
+        </div>
+        <button
+          type="button"
+          className="casino-color-bar__close focus-ring"
+          aria-label="Close"
+          onClick={() => {
+            playSound("close");
+            onClose();
+          }}
+        >
+          ×
+        </button>
+      </header>
 
-        {steps.length > 0 && (
-          <ol className="mt-3 space-y-1 text-xs">
-            {steps.map((step, i) => (
-              <li key={i} className="flex items-center gap-2 rounded bg-black/25 px-2 py-1">
-                <span className="flex-1">
-                  {i + 1}. {describeStep(state, step)}
-                </span>
-                <button
-                  onClick={() => setSteps(steps.filter((_, j) => j !== i))}
-                  className="text-[var(--accent-2)] hover:brightness-125"
-                  aria-label="Remove step"
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
+      <div className="trade-builder-bar__body scrollbar-thin">
+        <div className="trade-builder-bar__form rounded-lg border border-[var(--border)] bg-black/20 p-3">
+          <div className="trade-builder-bar__row">
+            <PlayerSelect label="From" players={players} value={from} onChange={setFromPlayer} />
 
-        <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/20 p-3">
-          <div className="mb-2 grid grid-cols-4 gap-1 rounded-md bg-black/30 p-0.5">
-            {(["money", "lot", "die", "action"] as StepDraftKind[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setKind(k)}
-                className={`rounded px-1 py-1 text-[11px] font-bold capitalize ${
-                  kind === k ? "bg-[var(--accent)] text-black" : "text-muted hover:text-white"
-                }`}
+            <span className="trade-builder-bar__sep" aria-hidden="true">
+              ›
+            </span>
+
+            <label className="trade-builder-bar__field">
+              <span className="trade-builder-bar__label">
+                Money{fromMoney > 0 && <span className="text-muted"> (${fromMoney}M)</span>}
+              </span>
+              <select
+                value={amount}
+                disabled={fromMoney === 0}
+                onChange={(e) => setAmount(e.target.value)}
+                className={fieldCls}
               >
-                {k}
-              </button>
-            ))}
-          </div>
+                <option value="">—</option>
+                {moneyOptions.map((n) => (
+                  <option key={n} value={n}>
+                    ${n}M
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          {kind === "money" && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <PlayerSelect players={players} value={mFrom} onChange={setMFrom} />
-              <span>pays</span>
-              <PlayerSelect players={players} value={mTo} onChange={setMTo} />
-              <span>$</span>
-              <input
-                type="number"
-                min={1}
-                value={mAmount}
-                onChange={(e) => setMAmount(parseInt(e.target.value) || 1)}
-                className={`${selectCls} w-16`}
-              />
-              <span>M</span>
-            </div>
-          )}
-
-          {kind === "lot" && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <PlayerSelect players={players} value={lFrom} onChange={setLFrom} />
-              <span>gives lot</span>
-              <select value={lLot} onChange={(e) => setLLot(e.target.value)} className={selectCls}>
+            <label className="trade-builder-bar__field">
+              <span className="trade-builder-bar__label">Lot</span>
+              <select
+                value={lotId}
+                onChange={(e) => setLotId(e.target.value as LotId | "")}
+                className={fieldCls}
+              >
                 <option value="">—</option>
                 {lotOptions.map((id) => (
                   <option key={id} value={id}>
@@ -417,119 +415,99 @@ function TradeBuilder({
                   </option>
                 ))}
               </select>
-              <span>to</span>
-              <PlayerSelect players={players} value={lTo} onChange={setLTo} />
-            </div>
-          )}
+            </label>
 
-          {kind === "die" && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <PlayerSelect players={players} value={dFrom} onChange={setDFrom} />
-              <span>gives die on</span>
-              <select value={dLot} onChange={(e) => setDLot(e.target.value)} className={selectCls}>
+            <label className="trade-builder-bar__field">
+              <span className="trade-builder-bar__label">Casino</span>
+              <select
+                value={dieLot}
+                onChange={(e) => setDieLot(e.target.value as LotId | "")}
+                className={fieldCls}
+              >
                 <option value="">—</option>
                 {dieOptions.map((id) => (
                   <option key={id} value={id}>
-                    {id} ({state.board[id].die?.value})
+                    {id} (pip {state.board[id].die?.value})
                   </option>
                 ))}
               </select>
-              <span>to</span>
-              <PlayerSelect players={players} value={dTo} onChange={setDTo} />
-            </div>
-          )}
+            </label>
 
-          {kind === "action" && (
-            <div className="space-y-2 text-xs">
-              <p className="text-muted">
-                Bundled action by the active player (
-                {players.find((p) => p.id === activeId)?.name ?? "—"}):
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={aType}
-                  onChange={(e) => {
-                    setAType(e.target.value as ActionCommand["type"]);
-                    setALot("");
-                    setALot2("");
-                  }}
-                  className={selectCls}
-                >
-                  {["build", "sprawl", "remodel", "raise", "reorganize", "gamble"].map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <select value={aLot} onChange={(e) => setALot(e.target.value)} className={selectCls}>
-                  <option value="">lot…</option>
-                  {actionLotOptions?.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
-                    </option>
-                  ))}
-                </select>
-                {aType === "sprawl" && (
-                  <select
-                    value={aLot2}
-                    onChange={(e) => setALot2(e.target.value)}
-                    className={selectCls}
-                  >
-                    <option value="">into…</option>
-                    {sprawlToOptions.map((id) => (
-                      <option key={id} value={id}>
-                        {id}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {(aType === "build" || aType === "remodel") && (
-                  <select
-                    value={aColor}
-                    onChange={(e) => setAColor(e.target.value as CasinoColor)}
-                    className={selectCls}
-                  >
-                    {CASINO_COLOR_KEYS.map((c) => (
-                      <option key={c} value={c}>
-                        {CASINOS[c].name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {aType === "gamble" && (
-                  <input
-                    type="number"
-                    min={1}
-                    value={aWager}
-                    onChange={(e) => setAWager(parseInt(e.target.value) || 1)}
-                    className={`${selectCls} w-16`}
-                  />
-                )}
-              </div>
-            </div>
-          )}
+            <span className="trade-builder-bar__sep" aria-hidden="true">
+              ›
+            </span>
 
-          <Button variant="subtle" size="sm" sound="chip" onClick={addStep} className="mt-3 w-full">
-            + Add step
-          </Button>
+            <PlayerSelect label="To" players={players} value={to} excludeId={from} onChange={setTo} />
+
+            <Button
+              variant="sky"
+              size="sm"
+              sound="chip"
+              onClick={addStep}
+              disabled={!canAdd}
+              className="trade-builder-bar__add shrink-0 self-end"
+            >
+              + Add
+            </Button>
+          </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="trade-builder-bar__footer">
+          {steps.length > 0 ? (
+            <ol className="trade-builder-bar__step-list scrollbar-thin text-xs">
+              {steps.map((step, i) => (
+                <li key={i} className="flex items-center gap-2 rounded bg-black/25 px-2 py-1">
+                  <span className="min-w-0 flex-1">
+                    {i + 1}. <StepLine state={state} step={step} />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSteps(steps.filter((_, j) => j !== i))}
+                    className="shrink-0 text-[var(--accent-2)] hover:brightness-125"
+                    aria-label="Remove step"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="trade-builder-bar__empty text-[11px] text-muted">
+              No steps yet — combine money, lots, and casino dice on each row.
+            </p>
+          )}
           <Button
             variant="gold"
             size="md"
             sound="trade"
             onClick={() => onPropose(steps)}
             disabled={steps.length === 0}
-            className="flex-1"
+            className="trade-builder-bar__propose shrink-0"
           >
-            Propose ({steps.length} step{steps.length === 1 ? "" : "s"})
-          </Button>
-          <Button variant="ghost" size="md" sound="close" onClick={onClose}>
-            Close
+            Propose ({steps.length})
           </Button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function TradeIcon() {
+  return (
+    <svg
+      className="casino-color-bar__action-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17 3l4 4-4 4" />
+      <path d="M21 7H7" />
+      <path d="M7 21l-4-4 4-4" />
+      <path d="M3 17h14" />
+    </svg>
   );
 }

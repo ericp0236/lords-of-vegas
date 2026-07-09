@@ -15,6 +15,7 @@ import { playSound } from "@/lib/sound/SoundManager";
 /** Inline bottom bar for choosing a casino color while the board stays visible. */
 export function CasinoColorBar({
   lotId,
+  selectedColor,
   action,
   priceLabel,
   state,
@@ -23,7 +24,8 @@ export function CasinoColorBar({
   onPick,
   onClose,
 }: {
-  lotId: LotId;
+  lotId?: LotId;
+  selectedColor?: CasinoColor;
   action: "build" | "remodel";
   priceLabel: string;
   state: GameState;
@@ -41,18 +43,20 @@ export function CasinoColorBar({
   }, [onClose]);
 
   const heading = action === "build" ? "Build on" : "Remodel at";
+  const lotLabel = lotId ?? "—";
 
   return (
     <div
       className="casino-color-bar w-full max-h-[min(42vh,220px)] shrink-0 overflow-hidden"
       role="region"
-      aria-label={`${heading} ${lotId}`}
+      aria-label={`${heading} ${lotLabel}`}
     >
       <header className="casino-color-bar__header">
         <div className="casino-color-bar__header-main">
           <ActionIcon action={action} />
           <span className="casino-color-bar__heading">
-            {heading} <span className="casino-color-bar__lot">{lotId}</span>
+            {heading}{" "}
+            <span className={lotId ? "casino-color-bar__lot" : "text-muted"}>{lotLabel}</span>
           </span>
           <span className="casino-color-bar__price">{priceLabel}</span>
         </div>
@@ -103,6 +107,8 @@ export function CasinoColorBar({
                 onPick(c);
               }}
               className={`casino-color-bar__card casino-color-bar__card--${c} focus-ring${
+                selectedColor === c ? " casino-color-bar__card--selected" : ""
+              }${
                 disabled ? (noTiles ? " casino-color-bar__card--sold-out" : " casino-color-bar__card--disabled") : ""
               }`}
               style={

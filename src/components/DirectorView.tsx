@@ -134,7 +134,7 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
           <ScoreTrackPanel state={state} layout="column" className="min-h-0 flex-1 rounded-xl" />
         </aside>
 
-        <aside className="scrollbar-thin flex w-52 shrink-0 flex-col gap-2 self-stretch overflow-y-auto">
+        <aside className="scrollbar-thin flex w-64 shrink-0 flex-col gap-2 self-stretch overflow-y-auto">
           <Panel title="Standings" className="shrink-0">
             <PlayerStandingsTable state={state} />
           </Panel>

@@ -504,10 +504,85 @@ export function actionGamble(
       s,
       "action",
       `${player.name} wagers $${wager}M at ${boss.name}'s casino (${group.join(", ")}): ${outcome}.`,
-      { roll, wager },
+      { roll, wager, playerId },
     ),
   ];
   return { state: appendLog(s, events), events };
+}
+
+// ---------------------------------------------------------------------------
+// Gamble UI sync — broadcast dice-tray roll / stop to all clients
+// ---------------------------------------------------------------------------
+
+function findGambleEvent(state: GameState, gambleAt: number): LogEvent | undefined {
+  return state.log.find(
+    (e) =>
+      e.type === "action" &&
+      e.at === gambleAt &&
+      typeof e.data?.roll === "number",
+  );
+}
+
+function gambleRollEventLogged(
+  state: GameState,
+  gambleAt: number,
+  phase: "start" | "stop",
+): boolean {
+  return state.log.some(
+    (e) =>
+      e.type === "gamble-roll" &&
+      e.data?.phase === phase &&
+      e.data?.gambleAt === gambleAt,
+  );
+}
+
+export function revealGambleRoll(
+  state: GameState,
+  playerId: string,
+  gambleAt: number,
+): ActionOutcome {
+  if (state.phase !== "playing") return { error: "The game isn't in progress." };
+  if (!state.turn?.gambleUsed) return { error: "No gamble to reveal." };
+  const gamble = findGambleEvent(state, gambleAt);
+  if (!gamble) return { error: "Gamble not found." };
+  const gamblerId =
+    typeof gamble.data?.playerId === "string" ? gamble.data.playerId : null;
+  if (gamblerId !== playerId) return { error: "Only the gambler can roll." };
+  if (gambleRollEventLogged(state, gambleAt, "start")) {
+    return { state, events: [] };
+  }
+  const events = [
+    makeEvent(state, "gamble-roll", "", {
+      phase: "start",
+      gambleAt,
+      playerId,
+    }),
+  ];
+  return { state: appendLog(state, events), events };
+}
+
+export function stopGambleRoll(
+  state: GameState,
+  playerId: string,
+  gambleAt: number,
+): ActionOutcome {
+  if (state.phase !== "playing") return { error: "The game isn't in progress." };
+  const gamble = findGambleEvent(state, gambleAt);
+  if (!gamble) return { error: "Gamble not found." };
+  const gamblerId =
+    typeof gamble.data?.playerId === "string" ? gamble.data.playerId : null;
+  if (gamblerId !== playerId) return { error: "Only the gambler can stop the roll." };
+  if (gambleRollEventLogged(state, gambleAt, "stop")) {
+    return { state, events: [] };
+  }
+  const events = [
+    makeEvent(state, "gamble-roll", "", {
+      phase: "stop",
+      gambleAt,
+      playerId,
+    }),
+  ];
+  return { state: appendLog(state, events), events };
 }
 
 // ---------------------------------------------------------------------------

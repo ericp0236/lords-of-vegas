@@ -73,8 +73,8 @@ export function DiscardPiles({
 
       {compact && (
         <div className="deck-discards__compact-count">
-          <span className="deck-discards__count-label">Cards in deck</span>
           <AnimatedNumber value={state.deck.length} className="deck-discards__count-value" />
+          <span className="deck-discards__count-label">cards in deck</span>
         </div>
       )}
     </div>

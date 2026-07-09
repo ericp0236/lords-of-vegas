@@ -33,15 +33,15 @@ export function PlayerStandingsTable({
     <div className="standings-table-wrap overflow-x-auto">
       <table className="standings-table w-full border-collapse">
         <thead>
-          <tr className="text-[9px] uppercase tracking-wide text-muted">
-            <th className="pb-1.5 pr-1 text-left font-bold">Player</th>
-            <th className="pb-1.5 px-0.5 text-right font-bold">Pts</th>
-            <th className="pb-1.5 px-0.5 text-right font-bold">$</th>
-            <th className="pb-1.5 px-0.5 text-right font-bold" title="Dice left">
+          <tr className="text-[10px] uppercase tracking-wide text-muted">
+            <th className="pb-2 pr-1.5 text-left font-bold">Player</th>
+            <th className="px-1 pb-2 text-right font-bold">Pts</th>
+            <th className="px-1 pb-2 text-right font-bold">$</th>
+            <th className="px-1 pb-2 text-right font-bold" title="Dice left">
               <span className="sr-only">Dice left</span>
               <MiniDie className="mx-auto" />
             </th>
-            <th className="pb-1.5 pl-0.5 text-right font-bold" title="Lot markers left">
+            <th className="pb-2 pl-1 text-right font-bold" title="Lot markers left">
               <span className="sr-only">Lot markers left</span>
               <MiniMarker className="mx-auto" />
             </th>
@@ -65,10 +65,10 @@ export function PlayerStandingsTable({
                     : undefined
                 }
               >
-                <td className="py-1 pr-1">
-                  <div className="flex min-w-0 items-center gap-1.5">
+                <td className="py-1.5 pr-1.5">
+                  <div className="flex min-w-0 items-center gap-2">
                     <span className="relative flex shrink-0 items-center">
-                      <PlayerCarMarker color={meta.hex} size={12} />
+                      <PlayerCarMarker color={meta.hex} size={14} />
                       {isActive && (
                         <span
                           className="absolute inset-0 animate-ping rounded-full opacity-60"
@@ -76,22 +76,22 @@ export function PlayerStandingsTable({
                         />
                       )}
                     </span>
-                    <span className="truncate text-[11px] font-semibold leading-none">
+                    <span className="truncate text-[13px] font-semibold leading-none">
                       {p.name}
                       {isMe && <span className="text-muted"> ·you</span>}
                     </span>
                   </div>
                 </td>
-                <td className="px-0.5 py-1 text-right font-mono text-[10px] font-bold text-[var(--accent)]">
+                <td className="px-1 py-1.5 text-right font-mono text-xs font-bold text-[var(--accent)]">
                   <AnimatedNumber value={SCORE_TRACK[p.trackIndex]} />
                 </td>
-                <td className="px-0.5 py-1 text-right">
-                  <MoneyValue amount={p.money} className="text-[10px] leading-none" />
+                <td className="px-1 py-1.5 text-right">
+                  <MoneyValue amount={p.money} className="text-xs leading-none" />
                 </td>
-                <td className="px-0.5 py-1 text-right font-mono text-[10px] text-white/55">
+                <td className="px-1 py-1.5 text-right font-mono text-xs text-white/55">
                   {diceLeft}
                 </td>
-                <td className="py-1 pl-0.5 text-right font-mono text-[10px] text-white/55">
+                <td className="py-1.5 pl-1 text-right font-mono text-xs text-white/55">
                   {markersLeft}
                 </td>
               </tr>

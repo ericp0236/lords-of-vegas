@@ -16,10 +16,16 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BOARD_LOTS, type LotId } from "@/data/boardLots";
+import type { CasinoColor } from "@/data/casinoCards";
 import { PLAYER_COLORS, type PlayerColor } from "@/data/playerColors";
-import { casinoGroup, casinoPoints } from "@/engine/casinos";
+import { bossOf, casinoGroup, casinoPoints } from "@/engine/casinos";
+import {
+  GAMBLE_PAYOUT_TIERS,
+  gambleDoublePayout,
+  gambleWinPayout,
+} from "@/lib/gambleRules";
 import { diceExhausted, parkingLots } from "@/engine/helpers";
-import type { ActionCommand, Command, GameState, LogEvent } from "@/engine/types";
+import type { ActionCommand, Command, GameState } from "@/engine/types";
 import { actionHintTitle } from "@/lib/actionHints";
 import {
   buildTargets,
@@ -39,14 +45,15 @@ import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
 import type { useGame } from "@/lib/useGame";
 import { Board, type BoardOverlayDie } from "./Board";
 import { CasinoColorBar } from "./CasinoColorBar";
-import { HOUSE_DIE, RollingDie } from "./DieFace";
+import { RollingDie } from "./DieFace";
 import { DiscardPiles } from "./DiscardPiles";
+import { GambleResultOverlay } from "./GambleResultOverlay";
 import { TilesLeftPanel } from "./TilesLeftPanel";
 import { LogPanel, stateLogLines } from "./LogPanel";
 import { MyStatsPanel } from "./MyStatsPanel";
 import { PlayerChips, PlayerStandingsTable } from "./PlayerChips";
 import { ScoreTrackPanel } from "./ScoreTrackPanel";
-import { TradeCenter } from "./TradeCenter";
+import { TradeBuilderBar, TradeCenter } from "./TradeCenter";
 import { Button } from "./ui/Button";
 import { ActionBarButton, ActionTileButton, EndTurnButton, type ActionTileKind } from "./ui/ActionTileButton";
 import { Modal } from "./ui/Modal";
@@ -56,8 +63,7 @@ import { SoundToggle } from "./ui/SoundToggle";
 
 type Mode =
   | { kind: "idle" }
-  | { kind: "build-lot" }
-  | { kind: "build-color"; lotId: LotId }
+  | { kind: "build"; lotId?: LotId; color?: CasinoColor }
   | { kind: "sprawl-from" }
   | { kind: "sprawl-to"; fromLot: LotId }
   | { kind: "remodel-casino" }
@@ -66,7 +72,8 @@ type Mode =
   | { kind: "reorganize-casino" }
   | { kind: "gamble-casino" }
   | { kind: "gamble-wager"; lotId: LotId }
-  | { kind: "vacate-die"; pending: ActionCommand };
+  | { kind: "vacate-die"; pending: ActionCommand }
+  | { kind: "trade-builder" };
 
 type SheetKind = "log" | "trades" | "score" | "supply" | null;
 
@@ -114,6 +121,16 @@ export function GamePlay({
   useEffect(() => {
     if (error) playSound("error");
   }, [error]);
+
+  // Close the trade builder if a trade becomes pending, a choice interrupts,
+  // or the game leaves the playing phase (mirrors the propose-button rules).
+  const tradeBuilderBlocked =
+    !!state.trade || !!state.pendingChoice || state.phase !== "playing";
+  useEffect(() => {
+    if (tradeBuilderBlocked && modeRef.current.kind === "trade-builder") {
+      setMode({ kind: "idle" });
+    }
+  }, [tradeBuilderBlocked]);
 
   // ------------------------------------------------------- pending choices
   const myPendingRemoveDie = pending?.kind === "removeDie" && pending.playerId === meId;
@@ -189,10 +206,8 @@ export function GamePlay({
     }
     const lots = (() => {
       switch (mode.kind) {
-        case "build-lot":
+        case "build":
           return new Set(buildTargets(state, meId));
-        case "build-color":
-          return new Set([mode.lotId]);
         case "sprawl-from":
           return new Set(sprawlFromTargets(state, meId));
         case "remodel-casino":
@@ -214,9 +229,7 @@ export function GamePlay({
       }
     })();
     const clickableLots =
-      mode.kind === "build-color" || mode.kind === "remodel-color"
-        ? new Set<LotId>()
-        : lots;
+      mode.kind === "remodel-color" ? new Set<LotId>() : lots;
     return { eligibleLots: lots, clickableLots };
   }, [
     state,
@@ -304,6 +317,16 @@ export function GamePlay({
     setSelectedReorgIdx(selectedReorgIdx === idx ? null : idx);
   }
 
+  function handleBuildColorPick(color: CasinoColor) {
+    const m = modeRef.current;
+    if (m.kind !== "build") return;
+    if (m.lotId) {
+      sendAction({ type: "build", lotId: m.lotId, color });
+      return;
+    }
+    setMode({ kind: "build", color: m.color === color ? undefined : color, lotId: m.lotId });
+  }
+
   function handleLotClick(lotId: LotId) {
     playSound("chip");
     if (myPendingRemoveDie) return void dispatch({ type: "chooseRemoveDie", lotId });
@@ -340,8 +363,14 @@ export function GamePlay({
       return;
     }
     switch (modeRef.current.kind) {
-      case "build-lot":
-        return setMode({ kind: "build-color", lotId });
+      case "build": {
+        const m = modeRef.current;
+        const nextLot = m.lotId === lotId ? undefined : lotId;
+        if (m.color && nextLot) {
+          return sendAction({ type: "build", lotId: nextLot, color: m.color });
+        }
+        return setMode({ kind: "build", lotId: nextLot, color: m.color });
+      }
       case "sprawl-from":
         return setMode({ kind: "sprawl-to", fromLot: lotId });
       case "sprawl-to":
@@ -389,10 +418,10 @@ export function GamePlay({
       return "Select a die or a tile first — then select the other.";
     }
     switch (mode.kind) {
-      case "build-lot":
-        return "Tap one of your parking lots to build on.";
-      case "build-color":
-        return "Choose a casino color below.";
+      case "build":
+        if (mode.lotId) return "Choose a casino color below.";
+        if (mode.color) return "Tap one of your parking lots to build on.";
+        return "Pick a casino color below or tap one of your parking lots.";
       case "remodel-color":
         return "Choose a new casino color below.";
       case "sprawl-from":
@@ -409,6 +438,8 @@ export function GamePlay({
         return "Tap another boss's casino to gamble there.";
       case "vacate-die":
         return "You're out of dice — tap one of your dice on the board to move it.";
+      case "trade-builder":
+        return "Compose trade steps below — every affected player must approve.";
       default:
         return null;
     }
@@ -416,6 +447,9 @@ export function GamePlay({
 
   const waitingOnOthers =
     pending && !myPendingRemoveDie && !myPendingVacateLot && !myPendingReorg;
+
+  const buildFocusedLots =
+    mode.kind === "build" && mode.lotId ? new Set([mode.lotId]) : undefined;
 
   return (
     <main className="city-backdrop mx-auto flex h-dvh max-h-dvh w-full max-w-[1600px] flex-col gap-1.5 overflow-hidden px-2 pb-2 pt-1.5 sm:px-3">
@@ -452,7 +486,7 @@ export function GamePlay({
         </aside>
 
         {/* -------------------------------------------- info rail: standings, tiles, log */}
-        <aside className="scrollbar-thin hidden w-52 shrink-0 flex-col gap-2 self-stretch overflow-y-auto lg:flex">
+        <aside className="scrollbar-thin hidden w-64 shrink-0 flex-col gap-2 self-stretch overflow-y-auto lg:flex">
           <Panel title="Standings" className="shrink-0">
             <PlayerStandingsTable state={state} viewerId={meId} />
           </Panel>
@@ -471,7 +505,7 @@ export function GamePlay({
             state={state}
             eligibleLots={eligibleLots}
             clickableLots={clickableLots}
-            focusedLots={selectedReorgLot ? new Set([selectedReorgLot]) : undefined}
+            focusedLots={buildFocusedLots ?? (selectedReorgLot ? new Set([selectedReorgLot]) : undefined)}
             overlayDice={boardOverlayDice}
             onLotClick={onLotClick}
             className="min-h-0 min-w-0 overflow-hidden"
@@ -479,9 +513,9 @@ export function GamePlay({
 
           <div className="relative z-20 min-h-0 overflow-hidden">
             <AnimatePresence initial={false}>
-              {mode.kind === "build-color" && (
+              {mode.kind === "build" && (
                 <motion.div
-                  key={`build-${mode.lotId}`}
+                  key="build"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
@@ -490,11 +524,12 @@ export function GamePlay({
                 >
                   <CasinoColorBar
                     lotId={mode.lotId}
+                    selectedColor={mode.color}
                     action="build"
-                    priceLabel={`$${BOARD_LOTS[mode.lotId].price}M`}
+                    priceLabel={mode.lotId ? `$${BOARD_LOTS[mode.lotId].price}M` : "Select lot"}
                     state={state}
                     minTiles={1}
-                    onPick={(color) => sendAction({ type: "build", lotId: mode.lotId, color })}
+                    onPick={handleBuildColorPick}
                     onClose={() => setMode({ kind: "idle" })}
                   />
                 </motion.div>
@@ -519,6 +554,26 @@ export function GamePlay({
                       sendAction({ type: "remodel", lotId: mode.lotId, newColor: color })
                     }
                     onClose={() => setMode({ kind: "idle" })}
+                  />
+                </motion.div>
+              )}
+              {mode.kind === "trade-builder" && (
+                <motion.div
+                  key="trade-builder"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  className="overflow-hidden"
+                >
+                  <TradeBuilderBar
+                    state={state}
+                    meId={meId}
+                    onClose={() => setMode({ kind: "idle" })}
+                    onPropose={async (steps) => {
+                      setMode({ kind: "idle" });
+                      await send(meId, { type: "proposeTrade", steps });
+                    }}
                   />
                 </motion.div>
               )}
@@ -589,13 +644,24 @@ export function GamePlay({
             dispatch={dispatch}
             openSheet={setSheet}
           />
-          <TradeCenter state={state} meId={meId} send={send} />
+          <TradeCenter
+            state={state}
+            meId={meId}
+            send={send}
+            onOpenBuilder={() => setMode({ kind: "trade-builder" })}
+          />
         </aside>
       </div>
 
       {/* ------------------------------------------------ overlays */}
       <TurnBanner isMyTurn={isMyTurn && state.phase === "playing"} color={me.color} />
-      <GambleResultOverlay log={state.log} />
+      <GambleResultOverlay
+        log={state.log}
+        meId={meId}
+        players={state.players}
+        onRevealRoll={(gambleAt) => void send(meId, { type: "revealGambleRoll", gambleAt })}
+        onStopRoll={(gambleAt) => void send(meId, { type: "stopGambleRoll", gambleAt })}
+      />
 
       <AnimatePresence>
         {error && (
@@ -620,7 +686,15 @@ export function GamePlay({
         )}
         {sheet === "trades" && (
           <Sheet title="Trades" onClose={() => setSheet(null)}>
-            <TradeCenter state={state} meId={meId} send={send} />
+            <TradeCenter
+              state={state}
+              meId={meId}
+              send={send}
+              onOpenBuilder={() => {
+                setSheet(null);
+                setMode({ kind: "trade-builder" });
+              }}
+            />
           </Sheet>
         )}
         {sheet === "score" && (
@@ -669,7 +743,7 @@ export function GamePlay({
 // ---------------------------------------------------------------------------
 
 const ACTIONS: { label: string; mode: Mode["kind"]; start: Mode }[] = [
-  { label: "Build", mode: "build-lot", start: { kind: "build-lot" } },
+  { label: "Build", mode: "build", start: { kind: "build" } },
   { label: "Sprawl", mode: "sprawl-from", start: { kind: "sprawl-from" } },
   { label: "Remodel", mode: "remodel-casino", start: { kind: "remodel-casino" } },
   { label: "Raise", mode: "raise-casino", start: { kind: "raise-casino" } },
@@ -678,7 +752,7 @@ const ACTIONS: { label: string; mode: Mode["kind"]; start: Mode }[] = [
 ];
 
 function isActionActive(a: (typeof ACTIONS)[number], mode: Mode): boolean {
-  if (a.mode === "build-lot") return mode.kind.startsWith("build");
+  if (a.mode === "build") return mode.kind === "build";
   if (a.mode === "sprawl-from") return mode.kind.startsWith("sprawl");
   if (a.mode === "remodel-casino") return mode.kind.startsWith("remodel");
   if (a.mode === "gamble-casino") return mode.kind.startsWith("gamble");
@@ -1039,70 +1113,6 @@ function TurnBanner({ isMyTurn, color }: { isMyTurn: boolean; color: keyof typeo
 }
 
 // ---------------------------------------------------------------------------
-// Gamble result overlay (dice roll shown to everyone at the table)
-// ---------------------------------------------------------------------------
-
-interface GambleResult {
-  key: string;
-  roll: number;
-  message: string;
-}
-
-function GambleResultOverlay({ log }: { log: LogEvent[] }) {
-  const [result, setResult] = useState<GambleResult | null>(null);
-  const seenRef = useRef<Set<string> | null>(null);
-
-  useEffect(() => {
-    const keys = log.map((e) => `${e.at}:${e.message}`);
-    if (!seenRef.current) {
-      seenRef.current = new Set(keys);
-      return;
-    }
-    for (let i = 0; i < log.length; i++) {
-      const e = log[i];
-      const k = keys[i];
-      if (seenRef.current.has(k)) continue;
-      seenRef.current.add(k);
-      if (e.type === "action" && typeof e.data?.roll === "number") {
-        setResult({ key: k, roll: e.data.roll as number, message: e.message });
-      }
-    }
-  }, [log]);
-
-  useEffect(() => {
-    if (!result) return;
-    const t = setTimeout(() => setResult(null), 4200);
-    return () => clearTimeout(t);
-  }, [result]);
-
-  if (!result) return null;
-  // Present the 2d6 sum as a plausible pair of faces.
-  const d1 = Math.min(6, Math.max(1, Math.ceil(result.roll / 2)));
-  const d2 = result.roll - d1;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        key={result.key}
-        initial={{ opacity: 0, y: 30, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 12, scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        className="pointer-events-none fixed bottom-20 left-1/2 z-[58] w-[min(92vw,480px)] -translate-x-1/2"
-      >
-        <div className="felt gold-rail flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl">
-          <div className="flex shrink-0 gap-1.5">
-            <RollingDie value={d1} palette={HOUSE_DIE} size={40} rollOnMount />
-            <RollingDie value={d2} palette={HOUSE_DIE} size={40} rollOnMount />
-          </div>
-          <p className="text-xs font-semibold leading-snug text-white/90">{result.message}</p>
-        </div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Modals
 // ---------------------------------------------------------------------------
 
@@ -1123,18 +1133,68 @@ function WagerModal({
   onRoll: (wager: number) => void;
   onClose: () => void;
 }) {
-  const maxBet = Math.min(
-    casinoPoints(state.board, casinoGroup(state.board, lotId)) * 5,
-    myMoney,
-  );
+  const group = casinoGroup(state.board, lotId);
+  const maxBet = Math.min(casinoPoints(state.board, group) * 5, myMoney);
   const clamped = Math.min(Math.max(1, wager), Math.max(1, maxBet));
+
+  const bossId = bossOf(state.board, group);
+  const boss = state.players.find((p) => p.id === bossId);
+  const bossMoney = boss?.money ?? 0;
+  const bossMeta = boss ? PLAYER_COLORS[boss.color] : null;
+
+  const winPayout = gambleWinPayout(clamped, bossMoney);
+  const doublePayout = gambleDoublePayout(clamped, bossMoney);
+  const capped = clamped > bossMoney || clamped * 2 > bossMoney;
 
   return (
     <Modal onClose={onClose} title={`Gamble at ${lotId}`}>
       <p className="mt-1 text-xs text-muted">
-        Maximum bet ${maxBet}M · 2 or 12 pays double · 3, 4, 9, 10, 11 pays your bet · 5–8 the
-        House wins.
+        Maximum bet ${maxBet}M ·{" "}
+        {GAMBLE_PAYOUT_TIERS.map((t) => `${t.rolls} ${t.result.toLowerCase()}`).join(
+          " · ",
+        )}
+        .
       </p>
+
+      {boss && bossMeta ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-black/25 px-3 py-2 text-xs">
+          <p className="text-muted">
+            <span className="font-semibold" style={{ color: bossMeta.hex }}>
+              {boss.name}
+            </span>{" "}
+            (the House) has{" "}
+            <span className="font-mono font-bold text-[var(--money)]">
+              ${bossMoney}M
+            </span>{" "}
+            available for payouts.
+          </p>
+          <div className="mt-1.5 flex gap-4 text-muted">
+            <span>
+              Win (3,4,9–11):{" "}
+              <span className="font-mono font-bold text-[var(--money)]">
+                ${winPayout}M
+              </span>
+            </span>
+            <span>
+              Double (2/12):{" "}
+              <span className="font-mono font-bold text-[var(--money)]">
+                ${doublePayout}M
+              </span>
+            </span>
+          </div>
+          {capped && (
+            <p className="mt-1.5 font-semibold text-amber-400">
+              {boss.name} can only pay ${bossMoney}M — a winning bet above that
+              won&apos;t be fully paid.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-lg border border-[var(--border)] bg-black/25 px-3 py-2 text-xs text-muted">
+          This casino has no single House boss, so a winning bet pays nothing.
+        </p>
+      )}
+
       <div className="mt-4 flex items-center gap-3">
         <input
           type="range"

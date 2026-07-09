@@ -200,7 +200,8 @@ export type LogEventType =
   | "reroll"
   | "trade"
   | "choice"
-  | "game-over";
+  | "game-over"
+  | "gamble-roll";
 
 export interface LogEvent {
   type: LogEventType;
@@ -244,7 +245,10 @@ export type Command =
   | { type: "approveTrade" }
   | { type: "rejectTrade" }
   | { type: "cancelTrade" }
-  | { type: "executeTrade" };
+  | { type: "executeTrade" }
+  // Gamble UI sync (dice tray overlay — no game-state change)
+  | { type: "revealGambleRoll"; gambleAt: number }
+  | { type: "stopGambleRoll"; gambleAt: number };
 
 // ---------------------------------------------------------------------------
 // Engine result

@@ -210,8 +210,8 @@ export function PropertyDeckCard({
         <div className="deck-discards__count-panel">
           <span className="deck-discards__count-rule" aria-hidden="true" />
           <div className="deck-discards__count-inner">
-            <span className="deck-discards__count-label">Cards in deck</span>
             <AnimatedNumber value={deckCount} className="deck-discards__count-value" />
+            <span className="deck-discards__count-label">cards in deck</span>
           </div>
           <span className="deck-discards__count-rule" aria-hidden="true" />
         </div>

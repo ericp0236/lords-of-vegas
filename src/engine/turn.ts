@@ -33,19 +33,30 @@ interface StepResult {
 export function payParkingLots(state: GameState): StepResult {
   let s = state;
   const events: LogEvent[] = [];
-  const paid: string[] = [];
+  const byPlayer = new Map<string, string[]>();
   for (const lotId of ALL_LOT_IDS) {
     const t = s.board[lotId];
     if (!t.built && t.parkingOwner) {
       s = addMoney(s, t.parkingOwner, 1);
-      paid.push(`${requirePlayer(s, t.parkingOwner).name} (${lotId})`);
+      const lots = byPlayer.get(t.parkingOwner) ?? [];
+      lots.push(lotId);
+      byPlayer.set(t.parkingOwner, lots);
     }
   }
-  if (paid.length) {
+  if (byPlayer.size) {
+    const grouped = s.players
+      .filter((p) => byPlayer.has(p.id))
+      .map((p) => {
+        const lots = byPlayer.get(p.id)!;
+        return `${p.name} +$${lots.length}M (${lots.join(", ")})`;
+      });
     events.push(
-      makeEvent(s, "parking-payout", `Parking lots pay $1M each: ${paid.join(", ")}.`, {
-        count: paid.length,
-      }),
+      makeEvent(
+        s,
+        "parking-payout",
+        `Parking lots pay $1M each: ${grouped.join(", ")}.`,
+        { count: [...byPlayer.values()].reduce((n, lots) => n + lots.length, 0) },
+      ),
     );
   }
   return { state: appendLog(s, events), events };

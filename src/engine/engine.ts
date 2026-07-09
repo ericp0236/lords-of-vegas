@@ -5,7 +5,7 @@
  */
 
 import { appendLog, isActivePlayer, makeEvent, requirePlayer } from "./helpers";
-import { applyAction, chooseReorgPlacement } from "./actions";
+import { applyAction, chooseReorgPlacement, revealGambleRoll, stopGambleRoll } from "./actions";
 import {
   approveJoin,
   rejectJoin,
@@ -205,6 +205,16 @@ export function applyCommand(
       }
       case "executeTrade": {
         const r = executeTrade(state, actorId, rng);
+        return "error" in r ? err(r.error) : ok(r.state, r.events);
+      }
+
+      // ---------------------------------------------- gamble UI sync
+      case "revealGambleRoll": {
+        const r = revealGambleRoll(state, actorId, command.gambleAt);
+        return "error" in r ? err(r.error) : ok(r.state, r.events);
+      }
+      case "stopGambleRoll": {
+        const r = stopGambleRoll(state, actorId, command.gambleAt);
         return "error" in r ? err(r.error) : ok(r.state, r.events);
       }
     }
