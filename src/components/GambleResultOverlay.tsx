@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PLAYER_COLORS } from "@/data/playerColors";
-import type { LogEvent, PlayerState } from "@/engine/types";
+import type { LogEvent, Player } from "@/engine/types";
 import { GAMBLE_PAYOUT_TIERS, gambleOutcome } from "@/lib/gambleRules";
 import { playSound } from "@/lib/sound/SoundManager";
 import { DieFace, HOUSE_DIE, RollingDie } from "./DieFace";
@@ -32,7 +32,7 @@ function rollStartFace(final: number): number {
   return final === 1 ? 6 : final - 1;
 }
 
-function gamblerFromEvent(e: LogEvent, players: PlayerState[]): string {
+function gamblerFromEvent(e: LogEvent, players: Player[]): string {
   if (typeof e.data?.playerId === "string") return e.data.playerId;
   const match = e.message.match(/^(.+?) wagers \$/);
   if (match) {
@@ -81,7 +81,7 @@ export function GambleResultOverlay({
 }: {
   log: LogEvent[];
   meId: string;
-  players: PlayerState[];
+  players: Player[];
   onRevealRoll: (gambleAt: number) => void;
   onStopRoll: (gambleAt: number) => void;
   onDismissRoll: (gambleAt: number) => void;
