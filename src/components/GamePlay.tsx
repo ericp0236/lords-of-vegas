@@ -25,7 +25,7 @@ import {
   gambleWinPayout,
 } from "@/lib/gambleRules";
 import { diceExhausted, parkingLots } from "@/engine/helpers";
-import type { ActionCommand, Command, GameState } from "@/engine/types";
+import type { ActionCommand, Command, GameState, TurnActivity } from "@/engine/types";
 import { actionHintTitle } from "@/lib/actionHints";
 import {
   buildTargets,
@@ -42,7 +42,9 @@ import {
 import { playSound } from "@/lib/sound/SoundManager";
 import { useGameFeedback } from "@/lib/useGameFeedback";
 import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
+import { spectatorHighlights } from "@/lib/turnActivity";
 import type { useGame } from "@/lib/useGame";
+import { ActivePlayerPanel } from "./ActivePlayerPanel";
 import { Board, type BoardOverlayDie } from "./Board";
 import { BottomSlideBar } from "./BottomSlideBar";
 import { CasinoColorBar } from "./CasinoColorBar";
@@ -132,6 +134,26 @@ export function GamePlay({
       setMode({ kind: "idle" });
     }
   }, [tradeBuilderBlocked]);
+
+  // Broadcast the active player's in-progress selection so spectators can
+  // follow along. Debounced, diffed, and gated on being the active player.
+  const activityJson = isMyTurn ? JSON.stringify(modeToActivity(mode)) : null;
+  const lastSentActivityRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activityJson === null) {
+      lastSentActivityRef.current = null;
+      return;
+    }
+    if (activityJson === lastSentActivityRef.current) return;
+    const t = setTimeout(() => {
+      lastSentActivityRef.current = activityJson;
+      void send(meId, {
+        type: "setTurnActivity",
+        activity: JSON.parse(activityJson) as TurnActivity,
+      });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [activityJson, meId, send]);
 
   // ------------------------------------------------------- pending choices
   const myPendingRemoveDie = pending?.kind === "removeDie" && pending.playerId === meId;
@@ -244,6 +266,18 @@ export function GamePlay({
     reorgDraft,
     inRollPhase,
   ]);
+
+  // Read-only highlights mirroring the active player's selection (spectators).
+  const spectatorView = useMemo(() => {
+    const activity = state.turn?.activity;
+    if (isMyTurn || state.phase !== "playing" || pending || !activity) {
+      return { eligibleLots: undefined, focusedLots: undefined } as {
+        eligibleLots: Set<LotId> | undefined;
+        focusedLots: Set<LotId> | undefined;
+      };
+    }
+    return spectatorHighlights(state, state.turn!.activePlayerId, activity);
+  }, [isMyTurn, state, pending]);
 
   // ------------------------------------------------------- helpers
   async function dispatch(command: Command) {
@@ -457,6 +491,9 @@ export function GamePlay({
       {/* ------------------------------------------------ header */}
       <header className="relative flex shrink-0 items-center gap-2.5">
         {isMyTurn && state.phase === "playing" && <YourTurnBadge color={me.color} />}
+        {!isMyTurn && state.phase === "playing" && active && (
+          <ActiveTurnBadge name={active.name} color={active.color} />
+        )}
         <h1 className="marquee hidden text-lg leading-none sm:block">Lords of Vegas</h1>
         <span className="rounded bg-black/40 px-2 py-0.5 font-mono text-xs font-bold tracking-[0.2em] text-[var(--accent)]">
           {state.roomCode}
@@ -505,9 +542,13 @@ export function GamePlay({
           <div className="min-h-0 h-full min-w-0 overflow-hidden">
             <Board
               state={state}
-              eligibleLots={eligibleLots}
-              clickableLots={clickableLots}
-              focusedLots={buildFocusedLots ?? (selectedReorgLot ? new Set([selectedReorgLot]) : undefined)}
+              eligibleLots={spectatorView.eligibleLots ?? eligibleLots}
+              clickableLots={spectatorView.eligibleLots ? EMPTY_LOTS : clickableLots}
+              focusedLots={
+                spectatorView.focusedLots ??
+                buildFocusedLots ??
+                (selectedReorgLot ? new Set([selectedReorgLot]) : undefined)
+              }
               overlayDice={boardOverlayDice}
               onLotClick={onLotClick}
               className="h-full min-h-0 min-w-0 overflow-hidden"
@@ -644,6 +685,7 @@ export function GamePlay({
         players={state.players}
         onRevealRoll={(gambleAt) => void send(meId, { type: "revealGambleRoll", gambleAt })}
         onStopRoll={(gambleAt) => void send(meId, { type: "stopGambleRoll", gambleAt })}
+        onDismissRoll={(gambleAt) => void send(meId, { type: "dismissGambleRoll", gambleAt })}
       />
 
       <AnimatePresence>
@@ -725,6 +767,42 @@ export function GamePlay({
 // Action dock
 // ---------------------------------------------------------------------------
 
+/** Stable empty lot set so spectator board cells stay non-clickable without churn. */
+const EMPTY_LOTS = new Set<LotId>();
+
+/** Project the local action mode to the serializable activity mirrored to spectators. */
+function modeToActivity(mode: Mode): TurnActivity {
+  switch (mode.kind) {
+    case "build":
+      return {
+        kind: "build",
+        ...(mode.lotId ? { lotId: mode.lotId } : {}),
+        ...(mode.color ? { color: mode.color } : {}),
+      };
+    case "sprawl-from":
+      return { kind: "sprawl-from" };
+    case "sprawl-to":
+      return { kind: "sprawl-to", fromLot: mode.fromLot };
+    case "remodel-casino":
+      return { kind: "remodel-casino" };
+    case "remodel-color":
+      return { kind: "remodel-color", lotId: mode.lotId };
+    case "raise-casino":
+      return { kind: "raise-casino" };
+    case "reorganize-casino":
+      return { kind: "reorganize-casino" };
+    case "gamble-casino":
+      return { kind: "gamble-casino" };
+    case "gamble-wager":
+      return { kind: "gamble-wager", lotId: mode.lotId };
+    case "vacate-die":
+      return { kind: "vacate-die" };
+    // trade-builder is not synced (would leak an in-progress proposal).
+    default:
+      return { kind: "idle" };
+  }
+}
+
 const ACTIONS: { label: string; mode: Mode["kind"]; start: Mode }[] = [
   { label: "Build", mode: "build", start: { kind: "build" } },
   { label: "Sprawl", mode: "sprawl-from", start: { kind: "sprawl-from" } },
@@ -792,6 +870,7 @@ function ActionDock({
   const me = state.players.find((p) => p.id === meId)!;
   const drawPhase = state.turn?.phase === "draw";
   const isSidebar = placement === "sidebar";
+  const spectating = !isMyTurn && state.phase === "playing";
 
   const waitingLabel = !isMyTurn ? (
     <span className="px-1 text-xs text-muted">
@@ -948,8 +1027,12 @@ function ActionDock({
         }`}
         bodyClassName="space-y-2"
       >
-        {waitingLabel && (
-          <div className="flex flex-wrap items-center gap-2">{waitingLabel}</div>
+        {spectating ? (
+          <ActivePlayerPanel state={state} />
+        ) : (
+          waitingLabel && (
+            <div className="flex flex-wrap items-center gap-2">{waitingLabel}</div>
+          )
         )}
 
         {sidebarActionGrid}
@@ -970,8 +1053,14 @@ function ActionDock({
       }`}
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        {waitingLabel && (
-          <div className="flex items-center gap-2">{waitingLabel}</div>
+        {spectating ? (
+          <div className="min-w-0 flex-1">
+            <ActivePlayerPanel state={state} compact />
+          </div>
+        ) : (
+          waitingLabel && (
+            <div className="flex items-center gap-2">{waitingLabel}</div>
+          )
         )}
 
         {bottomActionControls && (
@@ -1040,6 +1129,31 @@ function YourTurnBadge({ color }: { color: keyof typeof PLAYER_COLORS }) {
         />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: meta.hex }} />
       </span>
+    </span>
+  );
+}
+
+function ActiveTurnBadge({
+  name,
+  color,
+}: {
+  name: string;
+  color: keyof typeof PLAYER_COLORS;
+}) {
+  const meta = PLAYER_COLORS[color];
+  return (
+    <span className="turn-marquee absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <span
+        className="relative flex h-1.5 w-1.5 shrink-0"
+        title={`Player color: ${color}`}
+      >
+        <span
+          className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+          style={{ background: meta.hex }}
+        />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: meta.hex }} />
+      </span>
+      <span className="turn-marquee__label">{name}&rsquo;s Turn</span>
     </span>
   );
 }

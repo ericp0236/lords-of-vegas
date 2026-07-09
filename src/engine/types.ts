@@ -143,6 +143,25 @@ export interface ReorgReroll {
   to: number;
 }
 
+/**
+ * A serializable mirror of the active player's in-progress action selection,
+ * broadcast so inactive players can see what they're doing before it commits.
+ * Pure UI sync: never affects game rules. Cleared when an action, draw, or
+ * turn handoff commits.
+ */
+export type TurnActivity =
+  | { kind: "idle" }
+  | { kind: "build"; lotId?: LotId; color?: CasinoColor }
+  | { kind: "sprawl-from" }
+  | { kind: "sprawl-to"; fromLot: LotId }
+  | { kind: "remodel-casino" }
+  | { kind: "remodel-color"; lotId: LotId }
+  | { kind: "raise-casino" }
+  | { kind: "reorganize-casino" }
+  | { kind: "gamble-casino" }
+  | { kind: "gamble-wager"; lotId: LotId }
+  | { kind: "vacate-die" };
+
 export interface TurnState {
   number: number;
   activePlayerId: string;
@@ -154,6 +173,8 @@ export interface TurnState {
   reorganizedLots: LotId[];
   /** Latest reorganize reroll results for UI reveal (cleared on end turn) */
   reorgReveal: ReorgReroll[] | null;
+  /** Active player's in-progress selection, mirrored for spectators (UI only) */
+  activity?: TurnActivity | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,7 +269,10 @@ export type Command =
   | { type: "executeTrade" }
   // Gamble UI sync (dice tray overlay — no game-state change)
   | { type: "revealGambleRoll"; gambleAt: number }
-  | { type: "stopGambleRoll"; gambleAt: number };
+  | { type: "stopGambleRoll"; gambleAt: number }
+  | { type: "dismissGambleRoll"; gambleAt: number }
+  // Turn activity sync (spectator hints — no game-state change)
+  | { type: "setTurnActivity"; activity: TurnActivity };
 
 // ---------------------------------------------------------------------------
 // Engine result

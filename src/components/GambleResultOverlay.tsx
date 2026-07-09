@@ -77,12 +77,14 @@ export function GambleResultOverlay({
   players,
   onRevealRoll,
   onStopRoll,
+  onDismissRoll,
 }: {
   log: LogEvent[];
   meId: string;
   players: PlayerState[];
   onRevealRoll: (gambleAt: number) => void;
   onStopRoll: (gambleAt: number) => void;
+  onDismissRoll: (gambleAt: number) => void;
 }) {
   const [result, setResult] = useState<GambleResult | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
@@ -101,6 +103,18 @@ export function GambleResultOverlay({
     setPhase("revealed");
     playSound("diceLand");
   }, []);
+
+  const closeLocal = useCallback(() => {
+    activeGambleAtRef.current = null;
+    setResult(null);
+  }, []);
+
+  // The gambler's dismissal is broadcast so the tray closes for the whole
+  // table; spectators close only their own view.
+  const dismiss = useCallback(() => {
+    if (isGambler && result) onDismissRoll(result.gambleAt);
+    closeLocal();
+  }, [isGambler, result, onDismissRoll, closeLocal]);
 
   useEffect(() => {
     const keys = log.map((e) => `${e.at}:${e.type}:${e.message}`);
@@ -140,9 +154,10 @@ export function GambleResultOverlay({
         if (activeGambleAtRef.current !== gambleAt) continue;
         if (e.data.phase === "start") beginRolling();
         if (e.data.phase === "stop") snapRevealed();
+        if (e.data.phase === "dismiss") closeLocal();
       }
     }
-  }, [log, meId, players, beginRolling, snapRevealed]);
+  }, [log, meId, players, beginRolling, snapRevealed, closeLocal]);
 
   const handleRoll = () => {
     if (!result || !isGambler || phase !== "ready") return;
@@ -157,14 +172,11 @@ export function GambleResultOverlay({
   useEffect(() => {
     if (!result) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        activeGambleAtRef.current = null;
-        setResult(null);
-      }
+      if (e.key === "Escape") dismiss();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [result]);
+  }, [result, dismiss]);
 
   const gamblerColor =
     players.find((p) => p.id === result?.gamblerId)?.color ?? "red";
@@ -179,10 +191,7 @@ export function GambleResultOverlay({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          onClick={() => {
-            activeGambleAtRef.current = null;
-            setResult(null);
-          }}
+          onClick={dismiss}
         >
           <motion.div
             className="gamble-result-overlay"
@@ -311,9 +320,11 @@ export function GambleResultOverlay({
               )}
             </AnimatePresence>
 
-            {phase === "revealed" && (
+            {(phase === "revealed" || !isGambler) && (
               <p className="gamble-result-overlay__dismiss">
-                Click outside or press Esc to close
+                {isGambler
+                  ? "Click outside or press Esc to close for everyone"
+                  : "Click outside or press Esc to close"}
               </p>
             )}
           </motion.div>

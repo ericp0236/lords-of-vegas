@@ -526,7 +526,7 @@ function findGambleEvent(state: GameState, gambleAt: number): LogEvent | undefin
 function gambleRollEventLogged(
   state: GameState,
   gambleAt: number,
-  phase: "start" | "stop",
+  phase: "start" | "stop" | "dismiss",
 ): boolean {
   return state.log.some(
     (e) =>
@@ -578,6 +578,34 @@ export function stopGambleRoll(
   const events = [
     makeEvent(state, "gamble-roll", "", {
       phase: "stop",
+      gambleAt,
+      playerId,
+    }),
+  ];
+  return { state: appendLog(state, events), events };
+}
+
+/**
+ * The gambler dismisses the dice tray, closing it for the whole table.
+ * Spectators dismiss locally and never call this.
+ */
+export function dismissGambleRoll(
+  state: GameState,
+  playerId: string,
+  gambleAt: number,
+): ActionOutcome {
+  if (state.phase !== "playing") return { error: "The game isn't in progress." };
+  const gamble = findGambleEvent(state, gambleAt);
+  if (!gamble) return { error: "Gamble not found." };
+  const gamblerId =
+    typeof gamble.data?.playerId === "string" ? gamble.data.playerId : null;
+  if (gamblerId !== playerId) return { error: "Only the gambler can dismiss the roll." };
+  if (gambleRollEventLogged(state, gambleAt, "dismiss")) {
+    return { state, events: [] };
+  }
+  const events = [
+    makeEvent(state, "gamble-roll", "", {
+      phase: "dismiss",
       gambleAt,
       playerId,
     }),

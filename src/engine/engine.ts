@@ -5,7 +5,14 @@
  */
 
 import { appendLog, isActivePlayer, makeEvent, requirePlayer } from "./helpers";
-import { applyAction, chooseReorgPlacement, revealGambleRoll, stopGambleRoll } from "./actions";
+import {
+  applyAction,
+  chooseReorgPlacement,
+  dismissGambleRoll,
+  revealGambleRoll,
+  stopGambleRoll,
+} from "./actions";
+import { clearTurnActivity, setTurnActivity } from "./activity";
 import {
   approveJoin,
   rejectJoin,
@@ -87,7 +94,7 @@ export function applyCommand(
         if (state.phase !== "playing") return err("The game isn't in progress.");
         if (!isActivePlayer(state, actorId)) return err("It's not your turn.");
         const r = drawCard(state, rng);
-        return "error" in r ? err(r.error) : ok(r.state, r.events);
+        return "error" in r ? err(r.error) : ok(clearTurnActivity(r.state), r.events);
       }
       case "action": {
         if (state.phase !== "playing") return err("The game isn't in progress.");
@@ -96,7 +103,7 @@ export function applyCommand(
           return err("Draw a property card before taking actions.");
         if (state.pendingChoice) return err("Waiting on a pending choice.");
         const r = applyAction(state, actorId, command.action, rng);
-        return "error" in r ? err(r.error) : ok(r.state, r.events);
+        return "error" in r ? err(r.error) : ok(clearTurnActivity(r.state), r.events);
       }
       case "endTurn": {
         if (state.phase !== "playing") return err("The game isn't in progress.");
@@ -215,6 +222,16 @@ export function applyCommand(
       }
       case "stopGambleRoll": {
         const r = stopGambleRoll(state, actorId, command.gambleAt);
+        return "error" in r ? err(r.error) : ok(r.state, r.events);
+      }
+      case "dismissGambleRoll": {
+        const r = dismissGambleRoll(state, actorId, command.gambleAt);
+        return "error" in r ? err(r.error) : ok(r.state, r.events);
+      }
+
+      // ---------------------------------------------- turn activity sync
+      case "setTurnActivity": {
+        const r = setTurnActivity(state, actorId, command.activity);
         return "error" in r ? err(r.error) : ok(r.state, r.events);
       }
     }

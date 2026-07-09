@@ -17,6 +17,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { useGame } from "@/lib/useGame";
 import { useGameFeedback } from "@/lib/useGameFeedback";
 import { useReorgRollPhase } from "@/lib/useReorgRollPhase";
+import {
+  activityActionTile,
+  activityHint,
+  activityVerb,
+  pendingChoiceNote,
+  spectatorHighlights,
+} from "@/lib/turnActivity";
 import { Board } from "./Board";
 import { Confetti } from "./fx/Confetti";
 import { DiscardPiles } from "./DiscardPiles";
@@ -93,6 +100,10 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
   }
 
   const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
+  const highlights =
+    state.phase === "playing" && !state.pendingChoice && state.turn?.activity
+      ? spectatorHighlights(state, state.turn.activePlayerId, state.turn.activity)
+      : null;
 
   return (
     <main
@@ -150,6 +161,8 @@ export function DirectorView({ roomCode }: { roomCode: string }) {
 
         <Board
           state={state}
+          eligibleLots={highlights?.eligibleLots}
+          focusedLots={highlights?.focusedLots}
           overlayDice={inRollPhase ? rollOverlays : undefined}
           className="min-h-0 min-w-0 flex-1"
         />
@@ -207,6 +220,10 @@ function DirectorTurnPanel({ state }: { state: GameState }) {
   const active = state.players.find((p) => p.id === state.turn?.activePlayerId);
   const drawPhase = state.turn?.phase === "draw";
   const pendingNote = pendingChoiceNote(state);
+  const activeTile = activityActionTile(state.turn?.activity);
+  const hint = pendingNote
+    ? null
+    : activityHint(state.turn?.activity, active?.name ?? "The active player");
 
   return (
     <Panel
@@ -235,13 +252,15 @@ function DirectorTurnPanel({ state }: { state: GameState }) {
           >
             {active.name}
             <span className="text-[10px] font-semibold opacity-85">
-              {drawPhase ? "draws" : "acts"}
+              {drawPhase ? "draws" : activityVerb(state.turn?.activity)}
             </span>
           </span>
         ) : (
           <span className="text-xs text-muted">Waiting…</span>
         )}
       </div>
+
+      {hint && <p className="px-1 text-[11px] text-muted">{hint}</p>}
 
       {drawPhase ? (
         <p className="rounded-md bg-[var(--accent)]/10 px-2 py-2 text-center text-[11px] font-medium text-[var(--accent)]">
@@ -253,6 +272,7 @@ function DirectorTurnPanel({ state }: { state: GameState }) {
             <ActionTileButton
               key={kind}
               kind={kind}
+              active={kind === activeTile}
               disabled={kind === "gamble" && !!state.turn?.gambleUsed}
               onClick={() => {}}
             />
@@ -306,22 +326,6 @@ function DirectorTradesPanel({ state }: { state: GameState }) {
       )}
     </Panel>
   );
-}
-
-function pendingChoiceNote(state: GameState): string | null {
-  const pending = state.pendingChoice;
-  if (!pending) return null;
-  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "A player";
-  switch (pending.kind) {
-    case "removeDie":
-      return `${name(pending.playerId)} must choose a die to move.`;
-    case "vacateLot":
-      return `${name(pending.playerId)} must vacate a lot marker.`;
-    case "reorgPlacement":
-      return "Players are placing rerolled dice.";
-    default:
-      return "Waiting for a player choice…";
-  }
 }
 
 function describeStep(state: GameState, step: TradeStep): string {
